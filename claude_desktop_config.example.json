@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "nsf-awards": {
+      "command": "npx",
+      "args": ["-y", "nsf-awards-mcp"]
+    }
+  }
+}
