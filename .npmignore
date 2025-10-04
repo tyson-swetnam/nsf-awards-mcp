@@ -1,0 +1,27 @@
+# Source files
+src/
+tsconfig.json
+
+# Development files
+.git/
+.github/
+*.log
+
+# Test files
+test/
+*.test.ts
+*.spec.ts
+
+# Documentation not needed in package
+CONTRIBUTING.md
+claude_desktop_config.example.json
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
