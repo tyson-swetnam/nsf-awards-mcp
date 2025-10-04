@@ -1,0 +1,35 @@
+{
+  "name": "nsf-awards-mcp",
+  "version": "1.0.0",
+  "description": "MCP tool for searching the NSF Awards API",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "nsf-awards-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build",
+    "dev": "tsx src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "mcp",
+    "nsf",
+    "awards",
+    "research",
+    "funding"
+  ],
+  "author": "Tyson L. Swetnam",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.19.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
+
