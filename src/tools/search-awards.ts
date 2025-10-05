@@ -31,22 +31,71 @@ export const searchNSFAwardsTool: Tool = {
 
       // Map MCP input to NSF API parameters
       const searchParams: NSFSearchParams = {
+        // Core search
         keyword: validatedInput.keyword,
+
+        // Field selection (HIGH PRIORITY)
+        printFields: validatedInput.printFields,
+
+        // Identifier parameters
+        id: validatedInput.id,
+        ueiNumber: validatedInput.ueiNumber,
+        cfdaNumber: validatedInput.cfdaNumber,
+
+        // Organization parameters
         awardeeName: validatedInput.awardeeName,
         awardeeCity: validatedInput.awardeeCity,
         awardeeStateCode: validatedInput.awardeeStateCode,
+        awardeeCountryCode: validatedInput.awardeeCountryCode,
+        awardeeZipCode: validatedInput.awardeeZipCode,
+        awardeeDistrictCode: validatedInput.awardeeDistrictCode,
+
+        // Principal Investigator parameters
         piFirstName: validatedInput.piFirstName,
         piLastName: validatedInput.piLastName,
+        pdPIName: validatedInput.pdPIName,
+        coPDPI: validatedInput.coPDPI,
+
+        // Date parameters
         startDateFrom: validatedInput.startDateFrom,
         startDateTo: validatedInput.startDateTo,
         expDateFrom: validatedInput.expDateFrom,
         expDateTo: validatedInput.expDateTo,
+        dateStart: validatedInput.dateStart,
+        dateEnd: validatedInput.dateEnd,
+        awardsDateStart: validatedInput.awardsDateStart,
+        awardsDateEnd: validatedInput.awardsDateEnd,
+
+        // Financial parameters
         estimatedTotalAmtFrom: validatedInput.estimatedTotalAmtFrom,
         estimatedTotalAmtTo: validatedInput.estimatedTotalAmtTo,
+        fundsObligatedAmtFrom: validatedInput.fundsObligatedAmtFrom,
+        fundsObligatedAmtTo: validatedInput.fundsObligatedAmtTo,
+
+        // Agency and program parameters
         agency: validatedInput.agency,
+        awardAgencyCode: validatedInput.awardAgencyCode,
+        fundingAgencyCode: validatedInput.fundingAgencyCode,
+        awardingAgencyCode: validatedInput.awardingAgencyCode,
         fundProgramName: validatedInput.fundProgramName,
+        primaryProgram: validatedInput.primaryProgram,
+        nsfOrganization: validatedInput.nsfOrganization,
         nsfDirectorateName: validatedInput.nsfDirectorateName,
+
+        // Award type and classification
+        transType: validatedInput.transType,
+        awardType: validatedInput.awardType,
+
+        // Performance location parameters
+        perfLocation: validatedInput.perfLocation,
+        perfState: validatedInput.perfState,
         perfStateCode: validatedInput.perfStateCode,
+        perfCountryCode: validatedInput.perfCountryCode,
+
+        // Parent organization
+        parentUeiNumber: validatedInput.parentUeiNumber,
+
+        // Pagination
         offset: validatedInput.offset || 0,
         rpp: Math.min(validatedInput.limit || 25, 25)
       };

@@ -144,6 +144,8 @@ export interface NSFSearchParams {
   estimatedTotalAmtTo?: number;
   estimatedAwardAmountFrom?: number;
   estimatedAwardAmountTo?: number;
+  fundsObligatedAmtFrom?: number;
+  fundsObligatedAmtTo?: number;
   id?: string;
   agency?: string;
   awardAgencyCode?: string;
