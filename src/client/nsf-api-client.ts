@@ -35,7 +35,7 @@ export class NSFApiClient {
 
   constructor(config: NSFApiClientConfig = {}) {
     const {
-      baseURL = 'https://api.nsf.gov/services/v1',
+      baseURL = 'https://www.research.gov/awardapi-service/v1',
       timeout = 30000,
       maxRetries = 3,
       retryDelay = 1000
@@ -144,10 +144,18 @@ export class NSFApiClient {
   /**
    * Get detailed information about a specific award
    */
-  async getAwardDetails(awardId: string): Promise<NSFAward | null> {
+  async getAwardDetails(awardId: string, includeAbstract: boolean = false): Promise<NSFAward | null> {
     try {
+      const params: any = {};
+
+      if (includeAbstract) {
+        // Request all common fields plus abstractText
+        params.printFields = 'id,title,abstractText,agency,awardeeCity,awardeeName,awardeeStateCode,fundsObligatedAmt,date,startDate,expDate,piFirstName,piLastName,pdPIName,estimatedTotalAmt,fundProgramName,primaryProgram,transType,perfLocation,perfCity,perfStateCode,ueiNumber,publicAccessMandate';
+      }
+
       const response = await this.client.get<NSFSearchResponse | string>(
-        `/awards/${awardId}.json`
+        `/awards/${awardId}.json`,
+        { params }
       );
 
       const data = await this.parseResponse<NSFSearchResponse>(response.data);

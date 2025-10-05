@@ -30,7 +30,10 @@ export const getAwardDetailsTool = {
       logger.info('Executing get_award_details', { awardId: validatedInput.awardId });
 
       // Fetch award details
-      const award = await nsfApiClient.getAwardDetails(validatedInput.awardId);
+      const award = await nsfApiClient.getAwardDetails(
+        validatedInput.awardId,
+        validatedInput.includeAbstract ?? true
+      );
 
       if (!award) {
         logger.warn('Award not found', { awardId: validatedInput.awardId });
