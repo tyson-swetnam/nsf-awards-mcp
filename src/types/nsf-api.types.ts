@@ -7,53 +7,83 @@
  * Base award information structure
  */
 export interface NSFAward {
+  // Core identifiers
   id: string;
   title: string;
+
+  // Awardee/Organization fields
   awardee: string;
+  awardeeName?: string;
   awardeeCity?: string;
   awardeeStateCode?: string;
   awardeeCountryCode?: string;
   awardeeZipCode?: string;
+  awardeeDistrictCode?: string;
+  awardeeAddress?: string;
+  awardeeOrganization?: string;
+
+  // Award special attention fields (default API fields)
+  awdSpAttnCode?: string;
+  awdSpAttnDesc?: string;
+
+  // Principal Investigator fields
   piFirstName?: string;
   piMiddleInitial?: string;
   piLastName?: string;
   piEmail?: string;
+  pdPIName?: string;
   coPDPI?: string[];
+
+  // Date fields
   startDate?: string;
   expDate?: string;
-  awardeeName?: string;
-  awardeeAddress?: string;
+
+  // Performance location fields
   perfLocation?: string;
-  primaryProgram?: string;
-  agency?: string;
-  awardAgencyCode?: string;
-  fundProgramName?: string;
-  awardTotalIntnAmount?: number;
-  estimatedTotalAmt?: number;
-  fundsObligatedAmt?: number;
-  dunsNumber?: string;
-  ueiNumber?: string;
-  parentDunsNumber?: string;
-  parentUeiNumber?: string;
-  fundAgencyCode?: string;
-  awardingAgencyCode?: string;
-  abstractText?: string;
-  poName?: string;
-  poEmail?: string;
-  awardeeOrganization?: string;
-  transType?: string;
-  awardType?: string;
-  cfdaNumber?: string;
-  nsfDirectorateName?: string;
+  perfCity?: string;
   perfState?: string;
   perfStateCode?: string;
   perfCountryCode?: string;
   perfCountryName?: string;
+  perfZipCode?: string;
+  perfDistrictCode?: string;
+  perfAddress?: string;
+
+  // Financial fields
+  estimatedTotalAmt?: number;
+  fundsObligatedAmt?: number;
+  awardTotalIntnAmount?: number;
+
+  // Agency and program fields
+  agency?: string;
+  awardAgencyCode?: string;
+  fundAgencyCode?: string;
+  awardingAgencyCode?: string;
+  fundProgramName?: string;
+  primaryProgram?: string;
+  nsfDirectorateName?: string;
+
+  // Award classification
+  transType?: string;
+  awardType?: string;
+  cfdaNumber?: string;
+
+  // Program Officer fields
+  poName?: string;
+  poEmail?: string;
+  poPhone?: string;
+
+  // Identifier fields
+  ueiNumber?: string;
+  parentUeiNumber?: string;
+  dunsNumber?: string; // Legacy
+  parentDunsNumber?: string; // Legacy
+
+  // Research outputs
+  abstractText?: string;
   publicationResearch?: string[];
   publicationConference?: string[];
   projectOutcomesReport?: string;
-  perfZipCode?: string;
-  pdPIName?: string;
 }
 
 /**
