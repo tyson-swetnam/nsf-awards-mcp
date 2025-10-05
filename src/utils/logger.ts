@@ -27,13 +27,17 @@ const customFormat = winston.format.combine(
 
 /**
  * Create the logger instance
+ *
+ * IMPORTANT: MCP servers communicate via JSON on stdout.
+ * All logs MUST go to stderr to avoid corrupting the MCP protocol.
  */
 export const logger = winston.createLogger({
   level: logLevel,
   format: customFormat,
   transports: [
-    // Console transport for development
+    // Console transport - writes to stderr for MCP compatibility
     new winston.transports.Console({
+      stderrLevels: ['error', 'warn', 'info', 'debug', 'verbose'], // All logs to stderr
       format: winston.format.combine(
         winston.format.colorize(),
         winston.format.simple()

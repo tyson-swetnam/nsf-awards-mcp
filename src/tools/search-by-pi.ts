@@ -3,7 +3,7 @@
  * Search by Principal Investigator
  */
 
-import { Tool } from '@modelcontextprotocol/sdk/types.js';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
   SearchByPISchema,
   SearchByPIInput,
@@ -16,10 +16,10 @@ import { logger } from '../utils/logger.js';
 /**
  * Search by Principal Investigator Tool
  */
-export const searchByPITool: Tool = {
+export const searchByPITool = {
   name: 'search_by_pi',
   description: 'Search NSF awards by Principal Investigator name',
-  inputSchema: SearchByPISchema as any,
+  inputSchema: zodToJsonSchema(SearchByPISchema),
   handler: async (input: unknown): Promise<ToolResponse<NSFAward[]>> => {
     const startTime = Date.now();
 

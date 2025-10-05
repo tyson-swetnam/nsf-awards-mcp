@@ -3,7 +3,7 @@
  * Primary search tool for NSF awards with multiple filter parameters
  */
 
-import { Tool } from '@modelcontextprotocol/sdk/types.js';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
   SearchNSFAwardsSchema,
   SearchNSFAwardsInput,
@@ -16,10 +16,10 @@ import { logger } from '../utils/logger.js';
 /**
  * Search NSF Awards Tool
  */
-export const searchNSFAwardsTool: Tool = {
+export const searchNSFAwardsTool = {
   name: 'search_nsf_awards',
   description: 'Search NSF awards with multiple filter parameters including keyword, institution, PI name, dates, and amounts',
-  inputSchema: SearchNSFAwardsSchema as any,
+  inputSchema: zodToJsonSchema(SearchNSFAwardsSchema),
   handler: async (input: unknown): Promise<ToolResponse<NSFAward[]>> => {
     const startTime = Date.now();
 

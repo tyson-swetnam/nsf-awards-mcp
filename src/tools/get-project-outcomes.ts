@@ -3,7 +3,7 @@
  * Fetch project outcomes for an award
  */
 
-import { Tool } from '@modelcontextprotocol/sdk/types.js';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
   GetProjectOutcomesSchema,
   GetProjectOutcomesInput,
@@ -16,10 +16,10 @@ import { logger } from '../utils/logger.js';
 /**
  * Get Project Outcomes Tool
  */
-export const getProjectOutcomesTool: Tool = {
+export const getProjectOutcomesTool = {
   name: 'get_project_outcomes',
   description: 'Get project outcomes, publications, and results for a specific NSF award',
-  inputSchema: GetProjectOutcomesSchema as any,
+  inputSchema: zodToJsonSchema(GetProjectOutcomesSchema),
   handler: async (input: unknown): Promise<ToolResponse<NSFProjectOutcome>> => {
     const startTime = Date.now();
 

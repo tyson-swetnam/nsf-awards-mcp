@@ -3,7 +3,7 @@
  * Retrieve complete award information by ID
  */
 
-import { Tool } from '@modelcontextprotocol/sdk/types.js';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
   GetAwardDetailsSchema,
   GetAwardDetailsInput,
@@ -16,10 +16,10 @@ import { logger } from '../utils/logger.js';
 /**
  * Get Award Details Tool
  */
-export const getAwardDetailsTool: Tool = {
+export const getAwardDetailsTool = {
   name: 'get_award_details',
   description: 'Get detailed information about a specific NSF award by its ID',
-  inputSchema: GetAwardDetailsSchema as any,
+  inputSchema: zodToJsonSchema(GetAwardDetailsSchema),
   handler: async (input: unknown): Promise<ToolResponse<NSFAward>> => {
     const startTime = Date.now();
 
