@@ -1,156 +1,258 @@
 # NSF Awards MCP Server
 
-An MCP (Model Context Protocol) server that provides AI assistants with access to the U.S. National Science Foundation's Award API, enabling intelligent search and retrieval of NSF grant and award information.
-
-## Overview
-
-This MCP server integrates with the [NSF Awards API](https://resources.research.gov/common/webapi/awardapisearch-v1.htm) to provide structured access to NSF funding awards, project outcomes, and related metadata through the Model Context Protocol.
-
-## API Reference
-
-**Base URL:** `http://api.nsf.gov/services/v1/`
-
-**Available Endpoints:**
-- Award Search: `/awards.{format}`
-- Specific Award: `/awards/{id}.{format}`
-- Project Outcomes: `/awards/{id}/projectoutcomes.{format}`
-
-**Supported Formats:** JSON, XML, JSONP
-
-## Planned MCP Tools
-
-### 1. `search_nsf_awards`
-Search NSF awards using various criteria.
-
-**Parameters:**
-- `keyword` (string, optional): Free text search across award data
-- `awardee_name` (string, optional): Filter by organization name
-- `awardee_city` (string, optional): Filter by organization city
-- `pi_name` (string, optional): Principal Investigator name
-- `fund_program_name` (string, optional): NSF program name
-- `date_start` (string, optional): Award start date (mm/dd/yyyy)
-- `date_end` (string, optional): Award end date (mm/dd/yyyy)
-- `estimated_amount_from` (number, optional): Minimum award amount
-- `estimated_amount_to` (number, optional): Maximum award amount
-- `offset` (number, optional): Pagination offset
-- `results_per_page` (number, optional): Results per page (1-25, default 25)
-
-**Returns:** List of awards with default fields (id, agency, title, awardee info, PI names)
-
-### 2. `get_award_details`
-Retrieve detailed information about a specific NSF award.
-
-**Parameters:**
-- `award_id` (string, required): NSF award ID
-
-**Returns:** Complete award record with all available metadata
-
-### 3. `get_project_outcomes`
-Fetch project outcomes and results for a specific award.
-
-**Parameters:**
-- `award_id` (string, required): NSF award ID
-
-**Returns:** Project outcomes, publications, and impact data
-
-### 4. `search_by_institution`
-Find all awards for a specific institution with optional date range.
-
-**Parameters:**
-- `institution_name` (string, required): Organization/university name
-- `date_start` (string, optional): Start date filter
-- `date_end` (string, optional): End date filter
-- `offset` (number, optional): Pagination offset
-
-**Returns:** All awards for the specified institution
-
-### 5. `search_by_pi`
-Search awards by Principal Investigator name.
-
-**Parameters:**
-- `pi_name` (string, required): PI first or last name
-- `offset` (number, optional): Pagination offset
-
-**Returns:** Awards associated with the specified PI
-
-## Technical Implementation Plan
-
-### Phase 1: Core Infrastructure
-- [ ] Set up TypeScript project structure
-- [ ] Configure MCP SDK dependencies
-- [ ] Implement base HTTP client for NSF API
-- [ ] Add JSON/XML response parsing
-- [ ] Create type definitions for NSF API responses
-
-### Phase 2: Tool Implementation
-- [ ] Implement `search_nsf_awards` tool
-- [ ] Implement `get_award_details` tool
-- [ ] Implement `get_project_outcomes` tool
-- [ ] Implement `search_by_institution` tool
-- [ ] Implement `search_by_pi` tool
-
-### Phase 3: Enhancement & Polish
-- [ ] Add request caching for frequently accessed awards
-- [ ] Implement rate limiting and error handling
-- [ ] Add input validation and sanitization
-- [ ] Create comprehensive error messages
-- [ ] Add pagination helper utilities
-
-### Phase 4: Testing & Documentation
-- [ ] Write unit tests for each tool
-- [ ] Integration tests with live API
-- [ ] Usage examples and documentation
-- [ ] Performance optimization
+A Model Context Protocol (MCP) server that provides structured access to the U.S. National Science Foundation's Award API. This server enables AI assistants to search, retrieve, and analyze NSF grant and award information through standardized MCP tools.
 
 ## Features
 
-- **No Authentication Required:** The NSF API is public and open
-- **Flexible Searching:** Multiple search criteria and filters
-- **Pagination Support:** Handle large result sets efficiently
-- **Multiple Formats:** Support for JSON and XML responses
-- **Type-Safe:** Full TypeScript type definitions
+- **Comprehensive Award Search**: Search NSF awards with multiple filter parameters including keywords, institution names, PI names, date ranges, and funding amounts
+- **Detailed Award Information**: Retrieve complete award details including abstracts, funding information, and project metadata
+- **Project Outcomes**: Access project outcomes, publications, and research results
+- **Institution-Specific Searches**: Find all awards associated with specific institutions
+- **Principal Investigator Searches**: Search awards by PI name with support for Co-PI searches
+- **Robust Error Handling**: Comprehensive error handling with retry logic and detailed error messages
+- **Type Safety**: Full TypeScript implementation with strict type checking
+- **Production Ready**: Includes logging, input validation, and comprehensive test coverage
 
-## Use Cases
+## MCP Tools
 
-- Research funding analysis and trends
-- Grant history for institutions or PIs
-- Project outcome tracking
-- Funding opportunity discovery
-- Academic research support
+The server provides 5 MCP tools:
+
+### 1. `search_nsf_awards`
+Primary search tool with multiple filter parameters:
+- Keywords, institution names, PI names
+- Date ranges (start/end dates)
+- Funding amount ranges
+- Geographic filters (state, country)
+- Program and directorate filters
+
+### 2. `get_award_details`
+Retrieve complete information about a specific award by ID:
+- Full award metadata
+- Abstract text (optional)
+- Funding details
+- Institution and PI information
+
+### 3. `get_project_outcomes`
+Access project results and publications:
+- Research accomplishments
+- Publications with DOIs
+- Conference presentations
+- Websites and other products
+
+### 4. `search_by_institution`
+Institution-focused award searches:
+- Filter by state
+- Date range filtering
+- Include/exclude subawards
+- Pagination support
+
+### 5. `search_by_pi`
+Search awards by Principal Investigator:
+- Support for first and last name
+- Optional institution filtering
+- Include Co-PI searches
+- Date range filtering
 
 ## Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/yourusername/nsf-awards-mcp.git
+cd nsf-awards-mcp
+
+# Install dependencies
 npm install
+
+# Build the TypeScript code
 npm run build
+
+# Run tests (optional)
+npm test
 ```
 
-## Configuration
+## Usage
 
-Add to your MCP settings configuration:
+### Running the MCP Server
+
+```bash
+# Start the server
+npm start
+
+# Or run directly with Node
+node build/index.js
+
+# For development with auto-reload
+npm run dev
+```
+
+### Integration with Claude Desktop
+
+1. Add the server to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "nsf-awards": {
       "command": "node",
-      "args": ["/path/to/nsf-awards-mcp/build/index.js"]
+      "args": ["/path/to/nsf-awards-mcp/build/index.js"],
+      "env": {
+        "NODE_ENV": "production",
+        "LOG_LEVEL": "info"
+      }
     }
   }
 }
 ```
 
-## API Limitations
+2. Restart Claude Desktop
 
+3. The NSF Awards tools will be available in your conversations
+
+### Example Tool Usage
+
+#### Search for awards
+```typescript
+{
+  "tool": "search_nsf_awards",
+  "arguments": {
+    "keyword": "machine learning",
+    "awardeeName": "MIT",
+    "startDateFrom": "01/01/2023",
+    "estimatedTotalAmtFrom": 100000,
+    "limit": 25
+  }
+}
+```
+
+#### Get award details
+```typescript
+{
+  "tool": "get_award_details",
+  "arguments": {
+    "awardId": "2012345",
+    "includeAbstract": true
+  }
+}
+```
+
+#### Search by institution
+```typescript
+{
+  "tool": "search_by_institution",
+  "arguments": {
+    "institutionName": "Stanford University",
+    "stateCode": "CA",
+    "startDateFrom": "01/01/2024",
+    "limit": 10
+  }
+}
+```
+
+## Development
+
+### Project Structure
+
+```
+src/
+├── index.ts           # MCP server entry point
+├── tools/             # MCP tool implementations
+│   ├── search-awards.ts
+│   ├── get-award-details.ts
+│   ├── get-project-outcomes.ts
+│   ├── search-by-institution.ts
+│   └── search-by-pi.ts
+├── types/             # TypeScript type definitions
+│   ├── nsf-api.types.ts
+│   └── mcp-tools.types.ts
+├── client/            # NSF API HTTP client
+│   └── nsf-api-client.ts
+└── utils/             # Utility functions
+    ├── logger.ts      # Winston logger configuration
+    └── date-utils.ts  # Date format utilities
+```
+
+### Available Scripts
+
+```bash
+npm run build      # Build TypeScript to JavaScript
+npm run dev        # Run in development mode with auto-reload
+npm start          # Run the production server
+npm test           # Run test suite
+npm run lint       # Run ESLint
+npm run format     # Format code with Prettier
+npm run type-check # Check TypeScript types
+```
+
+### Environment Variables
+
+- `NODE_ENV`: Set to `production` for production deployment
+- `LOG_LEVEL`: Logging level (`error`, `warn`, `info`, `debug`, `verbose`)
+
+## API Details
+
+### NSF API Integration
+
+The server integrates with the NSF Award Search API v1:
+- Base URL: `https://api.nsf.gov/services/v1/`
+- No authentication required (public API)
+- Supports both JSON and XML responses (JSON preferred)
 - Maximum 25 results per page
-- Date format must be mm/dd/yyyy
-- No authentication or API key required
-- Public data only
+- Date format: mm/dd/yyyy
 
-## Development Status
+### Rate Limiting
 
-🚧 **In Development** - This MCP server is currently being built.
+The NSF API does not require authentication but may have rate limits. The server implements:
+- Exponential backoff retry logic
+- Configurable timeout (default: 30 seconds)
+- Maximum 3 retry attempts
+
+### Error Handling
+
+The server provides comprehensive error handling:
+- Input validation using Zod schemas
+- NSF API error parsing and meaningful error messages
+- Network error recovery with retries
+- Detailed error logging for debugging
+
+## Testing
+
+The project includes comprehensive unit tests:
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Generate coverage report
+npm test -- --coverage
+```
+
+Test coverage includes:
+- Date utility functions
+- NSF API client methods
+- MCP tool handlers
+- Input validation
+- Error handling
+
+## Contributing
+
+Contributions are welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass
+5. Submit a pull request
 
 ## License
 
 MIT
+
+## Acknowledgments
+
+This MCP server integrates with the U.S. National Science Foundation's public award database API. All data is publicly available through [nsf.gov](https://www.nsf.gov).
+
+## Support
+
+For issues, questions, or suggestions, please open an issue on GitHub.

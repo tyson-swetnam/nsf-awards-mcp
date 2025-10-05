@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "nsf-awards": {
+      "command": "node",
+      "args": ["build/index.js"],
+      "cwd": "/Users/tswetnam/github/nsf-awards-mcp",
+      "env": {
+        "NODE_ENV": "production",
+        "LOG_LEVEL": "info"
+      }
+    }
+  }
+}
