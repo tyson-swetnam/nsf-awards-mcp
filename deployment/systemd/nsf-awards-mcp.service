@@ -1,0 +1,65 @@
+[Unit]
+Description=NSF Awards MCP Server
+Documentation=https://github.com/user/nsf-awards-mcp
+Wants=network-online.target
+After=network-online.target
+AssertFileIsExecutable=/opt/nsf-awards-mcp/build/index.js
+
+[Service]
+Type=simple
+User=nsf-mcp
+Group=nsf-mcp
+WorkingDirectory=/opt/nsf-awards-mcp
+Environment=NODE_ENV=production
+Environment=LOG_LEVEL=info
+Environment=PATH=/usr/bin:/usr/local/bin
+ExecStart=/usr/bin/node build/index.js
+ExecReload=/bin/kill -HUP $MAINPID
+
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Security settings
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/nsf-awards-mcp/logs /var/log/nsf-awards-mcp
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+PrivateTmp=true
+PrivateDevices=true
+ProtectHostname=true
+ProtectClock=true
+ProtectKernelLogs=true
+ProtectProc=invisible
+ProcSubset=pid
+RemoveIPC=true
+UMask=0027
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+MemoryMax=1G
+TasksMax=4096
+
+# Standard I/O
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nsf-awards-mcp
+
+# Kill settings
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,155 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: nsf-awards-mcp
+  labels:
+    app: nsf-awards-mcp
+    environment: production
+  annotations:
+    # Cloud Run configuration
+    run.googleapis.com/ingress: all
+    run.googleapis.com/execution-environment: gen2
+    # Custom domain mapping (optional)
+    # run.googleapis.com/custom-audiences: https://your-domain.com
+spec:
+  template:
+    metadata:
+      labels:
+        app: nsf-awards-mcp
+        version: "1.0.0"
+      annotations:
+        # Scaling configuration
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "100"
+        autoscaling.knative.dev/target: "80"
+
+        # CPU allocation
+        run.googleapis.com/cpu-throttling: "true"
+
+        # VPC connector (if needed for private resources)
+        # run.googleapis.com/vpc-access-connector: projects/PROJECT_ID/locations/REGION/connectors/CONNECTOR_NAME
+        # run.googleapis.com/vpc-access-egress: private-ranges-only
+
+        # CloudSQL connector (if using database)
+        # run.googleapis.com/cloudsql-instances: PROJECT_ID:REGION:INSTANCE_NAME
+
+        # Session affinity (if needed)
+        # run.googleapis.com/session-affinity: true
+    spec:
+      containerConcurrency: 100
+      timeoutSeconds: 300
+      serviceAccountName: nsf-awards-mcp-sa
+      containers:
+      - name: nsf-awards-mcp
+        image: ghcr.io/user/nsf-awards-mcp:latest
+
+        # Resource limits
+        resources:
+          limits:
+            cpu: "1000m"      # 1 vCPU
+            memory: "2Gi"     # 2GB RAM
+          requests:
+            cpu: "500m"       # 0.5 vCPU
+            memory: "1Gi"     # 1GB RAM
+
+        # Container port
+        ports:
+        - name: http1
+          containerPort: 3000
+          protocol: TCP
+
+        # Environment variables
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: PORT
+          value: "3000"
+        - name: GOOGLE_CLOUD_PROJECT
+          valueFrom:
+            metadataResourceRef:
+              name: gcp-project-id
+
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 2
+
+        # Startup probe
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 30
+
+  traffic:
+  - percent: 100
+    latestRevision: true
+
+---
+# Service Account for Cloud Run service
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nsf-awards-mcp-sa
+  annotations:
+    # Link to Google Service Account
+    iam.gke.io/gcp-service-account: nsf-awards-mcp@PROJECT_ID.iam.gserviceaccount.com
+
+---
+# Horizontal Pod Autoscaler (for advanced scaling)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nsf-awards-mcp-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: serving.knative.dev/v1
+    kind: Service
+    name: nsf-awards-mcp
+  minReplicas: 1
+  maxReplicas: 50
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
