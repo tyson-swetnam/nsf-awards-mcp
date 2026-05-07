@@ -1,0 +1,47 @@
+# Docker Compose Override for Local Development
+# This file is automatically loaded by docker-compose to provide local development overrides
+
+version: '3.8'
+
+services:
+  # Development overrides for main service
+  nsf-awards-mcp:
+    # Use development build with more debugging
+    build:
+      target: ts-builder  # Use builder stage for development
+
+    # Override command for development
+    command: ["npm", "run", "dev"]
+
+    # Development environment
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+      - DEBUG=*
+
+    # Mount source code for live reload
+    volumes:
+      - .:/app:rw
+      - /app/node_modules  # Prevent overwriting installed modules
+      - /app/build        # Prevent overwriting build directory
+
+    # Enable TTY for better debugging
+    stdin_open: true
+    tty: true
+
+    # Remove resource limits for development
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+
+    # Expose additional debugging ports
+    ports:
+      - "3000:3000"   # Health check
+      - "9229:9229"   # Node.js debug port
+
+    # Labels for development identification
+    labels:
+      - "environment=development"
+      - "hot-reload=enabled"
