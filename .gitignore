@@ -71,4 +71,4 @@ Desktop.ini
 *.tsbuildinfo
 
 # MCP specific
-mcp-config.json.local
+mcp-config.json.locallive-probe/
