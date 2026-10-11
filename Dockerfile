@@ -4,7 +4,10 @@
 # =============================================================================
 # Stage 1: TypeScript Builder
 # =============================================================================
-FROM node:22-alpine AS ts-builder
+# Build on the runner's native platform: the output is plain JavaScript and the
+# runtime dependencies are pure JS, so node_modules is portable. Running npm
+# under QEMU for linux/arm64 crashes with "Illegal instruction".
+FROM --platform=$BUILDPLATFORM node:22-alpine AS ts-builder
 
 # Set working directory
 WORKDIR /app

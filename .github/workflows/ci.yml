@@ -110,8 +110,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Current QEMU is needed to emulate linux/arm64; the runner's default
-      # binfmt handler crashes Node 22 with "Illegal instruction"
+      # QEMU runs the linux/arm64 runtime stage's RUN steps (the Node build
+      # stage itself runs natively; see Dockerfile)
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
