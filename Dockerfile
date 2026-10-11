@@ -4,7 +4,7 @@
 # =============================================================================
 # Stage 1: TypeScript Builder
 # =============================================================================
-FROM node:18-alpine AS ts-builder
+FROM node:22-alpine AS ts-builder
 
 # Set working directory
 WORKDIR /app
@@ -63,7 +63,7 @@ COPY --from=ts-builder /app/package.json ./
 # =============================================================================
 # Stage 3: Production Runtime
 # =============================================================================
-FROM node:18-alpine AS runtime
+FROM node:22-alpine AS runtime
 
 # Set working directory
 WORKDIR /app

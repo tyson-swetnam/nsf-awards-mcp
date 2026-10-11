@@ -5,14 +5,9 @@
  * Provides structured access to NSF grant and award information through MCP tools
  */
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  ErrorCode,
-  McpError
-} from '@modelcontextprotocol/sdk/types.js';
+import { McpServer } from '@modelcontextprotocol/server';
+import { serveStdio } from '@modelcontextprotocol/server/stdio';
+import type { CallToolResult } from '@modelcontextprotocol/server';
 import { allTools } from './tools/index.js';
 import { logger } from './utils/logger.js';
 
@@ -21,18 +16,42 @@ import { logger } from './utils/logger.js';
  */
 const SERVER_INFO = {
   name: 'nsf-awards-mcp',
-  version: '1.0.0',
+  version: '1.1.0',
   description: 'MCP server for NSF Awards API integration'
 };
 
 /**
+ * Convert a tool handler's ToolResponse into an MCP CallToolResult
+ */
+function toCallToolResult(toolName: string, result: any): CallToolResult {
+  if (result.success) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(result.data, null, 2)
+        }
+      ],
+      isError: false
+    };
+  }
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: `Error executing tool '${toolName}': ${result.error?.message || 'Unknown error'}`
+      }
+    ],
+    isError: true
+  };
+}
+
+/**
  * Create and configure the MCP server
  */
-async function createServer(): Promise<Server> {
-  logger.info('Starting NSF Awards MCP Server', SERVER_INFO);
-
-  // Create the server instance
-  const server = new Server(
+async function createServer(): Promise<McpServer> {
+  const server = new McpServer(
     {
       name: SERVER_INFO.name,
       version: SERVER_INFO.version
@@ -44,116 +63,69 @@ async function createServer(): Promise<Server> {
     }
   );
 
-  /**
-   * Handle list_tools request
-   * Returns all available tools with their schemas
-   */
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    logger.debug('Handling list_tools request');
+  // Register every tool; the SDK validates arguments against the Zod schema
+  // and advertises the derived JSON Schema in tools/list.
+  for (const tool of allTools) {
+    const handler = tool.handler as (input: unknown) => Promise<any>;
 
-    const tools = allTools.map(tool => ({
-      name: tool.name,
-      description: tool.description,
-      inputSchema: tool.inputSchema
-    }));
+    server.registerTool(
+      tool.name,
+      {
+        title: tool.title,
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+        annotations: {
+          readOnlyHint: true,
+          idempotentHint: true,
+          openWorldHint: true
+        }
+      },
+      async (args: unknown): Promise<CallToolResult> => {
+        logger.info('Handling tool call', { toolName: tool.name, args });
 
-    return {
-      tools
-    };
-  });
+        try {
+          return toCallToolResult(tool.name, await handler(args));
+        } catch (error) {
+          logger.error('Tool execution failed', { toolName: tool.name, error });
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
 
-  /**
-   * Handle call_tool request
-   * Routes tool calls to appropriate handlers
-   */
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name: toolName, arguments: args } = request.params;
-
-    logger.info('Handling tool call', { toolName, args });
-
-    // Find the requested tool
-    const tool = allTools.find(t => t.name === toolName);
-
-    if (!tool) {
-      logger.error('Tool not found', { toolName });
-      throw new McpError(
-        ErrorCode.MethodNotFound,
-        `Tool '${toolName}' not found. Available tools: ${allTools.map(t => t.name).join(', ')}`
-      );
-    }
-
-    try {
-      // Execute the tool handler with proper typing
-      const handler = tool.handler as (input: unknown) => Promise<any>;
-      const result = await handler(args);
-
-      // Format the response based on success/failure
-      if (result.success) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result.data, null, 2)
-            }
-          ],
-          isError: false
-        };
-      } else {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Error: ${result.error?.message || 'Unknown error'}`
-            }
-          ],
-          isError: true
-        };
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Error executing tool '${tool.name}': ${errorMessage}`
+              }
+            ],
+            isError: true
+          };
+        }
       }
-    } catch (error) {
-      logger.error('Tool execution failed', { toolName, error });
-
-      // Handle unexpected errors
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Error executing tool '${toolName}': ${errorMessage}`
-          }
-        ],
-        isError: true
-      };
-    }
-  });
+    );
+  }
 
   return server;
 }
 
 /**
  * Main entry point
+ *
+ * serveStdio owns era selection for the connection: a 2026-07-28 client
+ * negotiates via server/discover, while a 2025-era client that opens with
+ * initialize is pinned to an instance from the same factory, so both are
+ * served by identical tool definitions.
  */
 async function main(): Promise<void> {
+  logger.info('Starting NSF Awards MCP Server', SERVER_INFO);
+
   try {
-    // Create the server
-    const server = await createServer();
-
-    // Create stdio transport
-    const transport = new StdioServerTransport();
-
-    // Handle server errors
-    server.onerror = (error) => {
-      logger.error('Server error', { error });
-    };
-
-    // Handle transport closure
-    transport.onclose = () => {
-      logger.info('Transport closed, shutting down server');
-      process.exit(0);
-    };
-
-    // Connect server to transport
-    await server.connect(transport);
+    serveStdio(async ({ era }) => {
+      logger.debug('Creating server instance', { era });
+      return createServer();
+    }, {
+      onerror: (error) => {
+        logger.error('Server error', { error });
+      }
+    });
 
     logger.info('NSF Awards MCP Server started successfully');
 

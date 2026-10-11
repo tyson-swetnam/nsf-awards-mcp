@@ -3,7 +3,6 @@
  * Institution-specific award searches
  */
 
-import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
   SearchByInstitutionSchema,
   SearchByInstitutionInput,
@@ -18,8 +17,9 @@ import { logger } from '../utils/logger.js';
  */
 export const searchByInstitutionTool = {
   name: 'search_by_institution',
+  title: 'Search NSF Awards by Institution',
   description: 'Search NSF awards by institution name with optional filters',
-  inputSchema: zodToJsonSchema(SearchByInstitutionSchema),
+  inputSchema: SearchByInstitutionSchema,
   handler: async (input: unknown): Promise<ToolResponse<NSFAward[]>> => {
     const startTime = Date.now();
 

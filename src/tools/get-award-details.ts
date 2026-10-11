@@ -3,7 +3,6 @@
  * Retrieve complete award information by ID
  */
 
-import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
   GetAwardDetailsSchema,
   GetAwardDetailsInput,
@@ -18,8 +17,9 @@ import { logger } from '../utils/logger.js';
  */
 export const getAwardDetailsTool = {
   name: 'get_award_details',
+  title: 'Get NSF Award Details',
   description: 'Get detailed information about a specific NSF award by its ID',
-  inputSchema: zodToJsonSchema(GetAwardDetailsSchema),
+  inputSchema: GetAwardDetailsSchema,
   handler: async (input: unknown): Promise<ToolResponse<NSFAward>> => {
     const startTime = Date.now();
 

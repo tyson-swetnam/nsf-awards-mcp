@@ -2,17 +2,11 @@
  * Unit tests for NSF API client
  */
 
-import axios from 'axios';
-import MockAdapter from 'axios-mock-adapter';
 import { NSFApiClient } from '../../src/client/nsf-api-client';
 import { NSFAward, NSFProjectOutcome } from '../../src/types/nsf-api.types';
 
-// Mock axios
-jest.mock('axios');
-
 describe('NSFApiClient', () => {
   let client: NSFApiClient;
-  let mockAxios: MockAdapter;
 
   beforeEach(() => {
     // Create a new client for each test
@@ -111,7 +105,12 @@ describe('NSFApiClient', () => {
     });
 
     it('should limit results to maximum 25', async () => {
-      const result = await client.searchAwards({
+      (client as any).client.get = jest.fn().mockResolvedValue({
+        data: { response: { award: [] } },
+        status: 200
+      });
+
+      await client.searchAwards({
         keyword: 'test',
         rpp: 100 // Exceeds maximum
       });
@@ -145,7 +144,8 @@ describe('NSFApiClient', () => {
 
       expect(result).toEqual(mockAward);
       expect((client as any).client.get).toHaveBeenCalledWith(
-        '/awards/1234567.json'
+        '/awards/1234567.json',
+        { params: {} }
       );
     });
 
@@ -220,6 +220,7 @@ describe('NSFApiClient', () => {
         {
           id: '1234567',
           title: 'Institution Award',
+          awardee: 'MIT',
           awardeeOrganization: 'MIT'
         }
       ];
@@ -236,7 +237,7 @@ describe('NSFApiClient', () => {
       (client as any).client.get = jest.fn().mockResolvedValue(mockResponse);
 
       const result = await client.searchByInstitution('MIT', {
-        stateCode: 'MA'
+        awardeeStateCode: 'MA'
       });
 
       expect(result.awards).toEqual(mockAwards);
@@ -252,6 +253,7 @@ describe('NSFApiClient', () => {
         {
           id: '1234567',
           title: 'PI Award',
+          awardee: 'MIT',
           piFirstName: 'John',
           piLastName: 'Doe'
         }
@@ -269,7 +271,7 @@ describe('NSFApiClient', () => {
       (client as any).client.get = jest.fn().mockResolvedValue(mockResponse);
 
       const result = await client.searchByPI('John', 'Doe', {
-        institution: 'MIT'
+        awardeeName: 'MIT'
       });
 
       expect(result.awards).toEqual(mockAwards);

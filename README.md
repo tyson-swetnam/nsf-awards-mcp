@@ -1,7 +1,7 @@
 # NSF Awards MCP Server
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-purple)](https://modelcontextprotocol.io/)
 
@@ -85,7 +85,7 @@ Search awards by Principal Investigator:
 
 ### Prerequisites
 
-- Node.js 18.x or higher
+- Node.js 20.x or higher
 - npm 9.x or higher
 
 ### Installation
@@ -287,7 +287,7 @@ See [DEVELOPMENT.md](DEVELOPMENT.md#testing) for detailed testing information.
 - Restart your MCP client completely
 
 **Server fails to start:**
-- Check Node.js version: `node --version` (must be 18.x or higher)
+- Check Node.js version: `node --version` (must be 20.x or higher)
 - Rebuild the project: `npm run build`
 - Check for error messages in client logs
 

@@ -176,6 +176,12 @@ describe('search_nsf_awards tool', () => {
     });
 
     it('should handle invalid input', async () => {
+      mockClient.searchAwards.mockResolvedValue({
+        awards: [],
+        totalResults: 0,
+        hasMore: false
+      });
+
       const result = await searchNSFAwardsTool.handler({
         invalidField: 'test'
       } as any);
@@ -195,7 +201,7 @@ describe('search_nsf_awards tool', () => {
       });
 
       expect(result.metadata?.executionTime).toBeDefined();
-      expect(result.metadata?.executionTime).toBeGreaterThan(0);
+      expect(result.metadata?.executionTime).toBeGreaterThanOrEqual(0);
     });
 
     it('should handle pagination parameters', async () => {

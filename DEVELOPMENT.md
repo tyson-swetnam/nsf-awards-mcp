@@ -452,7 +452,7 @@ npx husky add .husky/pre-commit "npm run type-check && npm run lint && npm test"
 
 #### Issue: Build Errors
 
-**Error: `Cannot find module '@modelcontextprotocol/sdk'`**
+**Error: `Cannot find module '@modelcontextprotocol/server'`**
 
 Solution:
 ```bash
@@ -674,7 +674,7 @@ To add a new MCP tool:
 1. **Create tool file** in `src/tools/your-tool.ts`:
    ```typescript
    import { z } from 'zod';
-   import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+   import { ProtocolError, ProtocolErrorCode } from '@modelcontextprotocol/server';
 
    const YourToolSchema = z.object({
      param: z.string().describe('Parameter description'),
@@ -726,7 +726,7 @@ To add a new MCP tool:
 - [NSF Award Search API Documentation](https://www.research.gov/common/webapi/awardapisearch-v1.htm)
 - [TypeScript Documentation](https://www.typescriptlang.org/docs/)
 - [Jest Testing Framework](https://jestjs.io/docs/getting-started)
-- [MCP SDK Documentation](https://github.com/modelcontextprotocol/sdk)
+- [MCP TypeScript SDK v2 Documentation](https://ts.sdk.modelcontextprotocol.io/v2/)
 
 ## Getting Help
 

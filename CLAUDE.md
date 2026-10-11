@@ -50,7 +50,7 @@ Since this is a new project, you'll need to initialize it first:
 # Initialize TypeScript project
 npm init -y
 npm install --save-dev typescript @types/node
-npm install @modelcontextprotocol/sdk
+npm install @modelcontextprotocol/server zod
 
 # Create TypeScript config
 npx tsc --init
