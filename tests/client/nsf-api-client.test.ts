@@ -2,17 +2,11 @@
  * Unit tests for NSF API client
  */
 
-import axios from 'axios';
-import MockAdapter from 'axios-mock-adapter';
 import { NSFApiClient } from '../../src/client/nsf-api-client';
-import { NSFAward, NSFProjectOutcome } from '../../src/types/nsf-api.types';
-
-// Mock axios
-jest.mock('axios');
+import { NSFAward } from '../../src/types/nsf-api.types';
 
 describe('NSFApiClient', () => {
   let client: NSFApiClient;
-  let mockAxios: MockAdapter;
 
   beforeEach(() => {
     // Create a new client for each test
@@ -111,7 +105,12 @@ describe('NSFApiClient', () => {
     });
 
     it('should limit results to maximum 25', async () => {
-      const result = await client.searchAwards({
+      (client as any).client.get = jest.fn().mockResolvedValue({
+        data: { response: { award: [] } },
+        status: 200
+      });
+
+      await client.searchAwards({
         keyword: 'test',
         rpp: 100 // Exceeds maximum
       });
@@ -144,9 +143,7 @@ describe('NSFApiClient', () => {
       const result = await client.getAwardDetails('1234567');
 
       expect(result).toEqual(mockAward);
-      expect((client as any).client.get).toHaveBeenCalledWith(
-        '/awards/1234567.json'
-      );
+      expect((client as any).client.get).toHaveBeenCalledWith('/awards/1234567.json');
     });
 
     it('should return null for non-existent award', async () => {
@@ -163,26 +160,23 @@ describe('NSFApiClient', () => {
   });
 
   describe('getProjectOutcomes', () => {
-    it('should get project outcomes successfully', async () => {
-      const mockOutcome: NSFProjectOutcome = {
-        awardId: '1234567',
-        awardTitle: 'Test Award',
-        pi: 'John Doe',
-        organization: 'Test University',
-        accomplishments: 'Test accomplishments',
-        publications: [
-          {
-            title: 'Test Publication',
-            authors: 'Doe, J.',
-            year: '2024'
-          }
-        ]
-      };
-
+    it('should read projectOutComesReport from the award record', async () => {
+      // Shape returned by /awards/{id}/projectoutcomes.json (checked live)
       const mockResponse = {
         data: {
           response: {
-            projectOutcomes: mockOutcome
+            award: [
+              {
+                id: '1114898',
+                title: 'CNH: Long-Term Vulnerability',
+                awardee: 'UNIVERSITY OF ARIZONA',
+                awardeeName: 'University of Arizona',
+                pdPIName: 'Thomas W Swetnam',
+                projectOutComesReport:
+                  '<div class="porColContainerWBG"><p>Homes &amp; forests.</p><p>Second</p></div>'
+              }
+            ],
+            metadata: { offset: 0, rpp: 25, totalCount: 1 }
           }
         },
         status: 200
@@ -190,27 +184,82 @@ describe('NSFApiClient', () => {
 
       (client as any).client.get = jest.fn().mockResolvedValue(mockResponse);
 
-      const result = await client.getProjectOutcomes('1234567');
+      const result = await client.getProjectOutcomes('1114898');
 
-      expect(result).toEqual(mockOutcome);
+      expect(result).toMatchObject({
+        awardId: '1114898',
+        title: 'CNH: Long-Term Vulnerability',
+        pi: 'Thomas W Swetnam',
+        awardee: 'University of Arizona',
+        outcomesReport: 'Homes & forests.\nSecond'
+      });
       expect((client as any).client.get).toHaveBeenCalledWith(
-        '/awards/1234567/projectoutcomes.json'
+        '/awards/1114898/projectoutcomes.json'
       );
     });
 
-    it('should return null when no outcomes exist', async () => {
+    it('should return null when the award has no report', async () => {
       const mockResponse = {
         data: {
-          response: {}
+          response: { award: [{ id: '9307607', title: 'Old', awardee: 'U' }] }
         },
         status: 200
       };
 
       (client as any).client.get = jest.fn().mockResolvedValue(mockResponse);
 
-      const result = await client.getProjectOutcomes('1234567');
+      expect(await client.getProjectOutcomes('9307607')).toBeNull();
+    });
+  });
 
-      expect(result).toBeNull();
+  describe('API service notifications', () => {
+    it('should surface AwardAPI-002 as an error instead of empty results', async () => {
+      (client as any).client.get = jest.fn().mockResolvedValue({
+        data: {
+          response: {
+            serviceNotification: [
+              {
+                notificationCode: 'AwardAPI-002',
+                notificationMessage:
+                  'Invalid parameter(s) sent in the request. Invalid Parameter(s) {startDateFrom}',
+                notificationType: 'ERROR'
+              }
+            ]
+          }
+        },
+        status: 200
+      });
+
+      await expect(client.searchAwards({ keyword: 'x' })).rejects.toThrow('AwardAPI-002');
+    });
+
+    it('should use metadata.totalCount for totals and hasMore', async () => {
+      (client as any).client.get = jest.fn().mockResolvedValue({
+        data: {
+          response: {
+            award: [{ id: '1', title: 'A', awardee: 'U' }],
+            metadata: { offset: 0, rpp: 1, totalCount: 981 }
+          }
+        },
+        status: 200
+      });
+
+      const result = await client.searchAwards({ keyword: 'wildfire', rpp: 1 });
+
+      expect(result.totalResults).toBe(981);
+      expect(result.hasMore).toBe(true);
+    });
+
+    it('should quote multi-word awardeeName so the API matches the phrase', async () => {
+      (client as any).client.get = jest.fn().mockResolvedValue({
+        data: { response: { award: [] } },
+        status: 200
+      });
+
+      await client.searchByInstitution('University of Arizona');
+
+      const callArgs = ((client as any).client.get as jest.Mock).mock.calls[0];
+      expect(callArgs[1].params.awardeeName).toBe('"University of Arizona"');
     });
   });
 
@@ -220,6 +269,7 @@ describe('NSFApiClient', () => {
         {
           id: '1234567',
           title: 'Institution Award',
+          awardee: 'MIT',
           awardeeOrganization: 'MIT'
         }
       ];
@@ -236,13 +286,13 @@ describe('NSFApiClient', () => {
       (client as any).client.get = jest.fn().mockResolvedValue(mockResponse);
 
       const result = await client.searchByInstitution('MIT', {
-        stateCode: 'MA'
+        awardeeStateCode: 'MA'
       });
 
       expect(result.awards).toEqual(mockAwards);
 
       const callArgs = ((client as any).client.get as jest.Mock).mock.calls[0];
-      expect(callArgs[1].params.awardeeOrganization).toBe('MIT');
+      expect(callArgs[1].params.awardeeName).toBe('MIT');
     });
   });
 
@@ -252,6 +302,7 @@ describe('NSFApiClient', () => {
         {
           id: '1234567',
           title: 'PI Award',
+          awardee: 'MIT',
           piFirstName: 'John',
           piLastName: 'Doe'
         }
@@ -269,7 +320,7 @@ describe('NSFApiClient', () => {
       (client as any).client.get = jest.fn().mockResolvedValue(mockResponse);
 
       const result = await client.searchByPI('John', 'Doe', {
-        institution: 'MIT'
+        awardeeName: 'MIT'
       });
 
       expect(result.awards).toEqual(mockAwards);
@@ -292,13 +343,13 @@ describe('NSFApiClient', () => {
       (client as any).client.get = jest.fn().mockResolvedValue(mockResponse);
 
       await client.searchAwards({
-        startDateFrom: '2024-01-01',
-        startDateTo: '2024-12-31'
+        startDateStart: '2024-01-01',
+        startDateEnd: '2024-12-31'
       });
 
       const callArgs = ((client as any).client.get as jest.Mock).mock.calls[0];
-      expect(callArgs[1].params.startDateFrom).toBe('01/01/2024');
-      expect(callArgs[1].params.startDateTo).toBe('12/31/2024');
+      expect(callArgs[1].params.startDateStart).toBe('01/01/2024');
+      expect(callArgs[1].params.startDateEnd).toBe('12/31/2024');
     });
 
     it('should remove invalid date parameters', async () => {
@@ -312,13 +363,13 @@ describe('NSFApiClient', () => {
       (client as any).client.get = jest.fn().mockResolvedValue(mockResponse);
 
       await client.searchAwards({
-        startDateFrom: 'invalid',
-        startDateTo: '01/01/2024'
+        startDateStart: 'invalid',
+        startDateEnd: '01/01/2024'
       });
 
       const callArgs = ((client as any).client.get as jest.Mock).mock.calls[0];
-      expect(callArgs[1].params.startDateFrom).toBeUndefined();
-      expect(callArgs[1].params.startDateTo).toBe('01/01/2024');
+      expect(callArgs[1].params.startDateStart).toBeUndefined();
+      expect(callArgs[1].params.startDateEnd).toBe('01/01/2024');
     });
   });
 });

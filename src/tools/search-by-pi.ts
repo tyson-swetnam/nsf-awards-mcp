@@ -3,12 +3,7 @@
  * Search by Principal Investigator
  */
 
-import { zodToJsonSchema } from 'zod-to-json-schema';
-import {
-  SearchByPISchema,
-  SearchByPIInput,
-  ToolResponse
-} from '../types/mcp-tools.types.js';
+import { SearchByPISchema, ToolResponse } from '../types/mcp-tools.types.js';
 import { NSFAward, NSFSearchParams } from '../types/nsf-api.types.js';
 import { nsfApiClient } from '../client/nsf-api-client.js';
 import { logger } from '../utils/logger.js';
@@ -18,14 +13,15 @@ import { logger } from '../utils/logger.js';
  */
 export const searchByPITool = {
   name: 'search_by_pi',
+  title: 'Search NSF Awards by PI',
   description: 'Search NSF awards by Principal Investigator name',
-  inputSchema: zodToJsonSchema(SearchByPISchema),
+  inputSchema: SearchByPISchema,
   handler: async (input: unknown): Promise<ToolResponse<NSFAward[]>> => {
     const startTime = Date.now();
 
     try {
       // Validate input
-      const validatedInput = SearchByPISchema.parse(input) as SearchByPIInput;
+      const validatedInput = SearchByPISchema.parse(input);
 
       logger.info('Executing search_by_pi', {
         firstName: validatedInput.firstName,
@@ -35,9 +31,9 @@ export const searchByPITool = {
 
       // Build search parameters
       const searchParams: Partial<NSFSearchParams> = {
-        awardeeOrganization: validatedInput.institution,
-        startDateFrom: validatedInput.startDateFrom,
-        startDateTo: validatedInput.startDateTo,
+        awardeeName: validatedInput.institution,
+        startDateStart: validatedInput.startDateFrom,
+        startDateEnd: validatedInput.startDateTo,
         offset: validatedInput.offset || 0,
         rpp: Math.min(validatedInput.limit || 25, 25)
       };
@@ -51,6 +47,8 @@ export const searchByPITool = {
 
       let allAwards = [...result.awards];
       let hasMoreResults = result.hasMore;
+      // Upper bound when Co-PI matches are merged in (the two sets can overlap)
+      let totalMatches = result.totalResults;
 
       // If includeCoPIs is true, also search for Co-PI matches
       if (validatedInput.includeCoPIs) {
@@ -65,13 +63,12 @@ export const searchByPITool = {
           const coPIResult = await nsfApiClient.searchAwards(coPIParams);
 
           // Merge results and remove duplicates based on award ID
-          const awardIds = new Set(allAwards.map(a => a.id));
-          const uniqueCoPIAwards = coPIResult.awards.filter(
-            award => !awardIds.has(award.id)
-          );
+          const awardIds = new Set(allAwards.map((a) => a.id));
+          const uniqueCoPIAwards = coPIResult.awards.filter((award) => !awardIds.has(award.id));
 
           allAwards = [...allAwards, ...uniqueCoPIAwards];
           hasMoreResults = hasMoreResults || coPIResult.hasMore;
+          totalMatches += coPIResult.totalResults;
         } catch (coPIError) {
           logger.warn('Co-PI search failed, returning PI results only', { coPIError });
         }
@@ -79,7 +76,9 @@ export const searchByPITool = {
 
       // Sort awards by start date (most recent first)
       allAwards.sort((a, b) => {
-        if (!a.startDate || !b.startDate) return 0;
+        if (!a.startDate || !b.startDate) {
+          return 0;
+        }
         try {
           const [aMonth, aDay, aYear] = a.startDate.split('/').map(Number);
           const [bMonth, bDay, bYear] = b.startDate.split('/').map(Number);
@@ -102,7 +101,7 @@ export const searchByPITool = {
       }, 0);
 
       const institutionDistribution: Record<string, number> = {};
-      limitedAwards.forEach(award => {
+      limitedAwards.forEach((award) => {
         const org = award.awardeeOrganization || award.awardeeName || 'Unknown';
         institutionDistribution[org] = (institutionDistribution[org] || 0) + 1;
       });
@@ -119,7 +118,7 @@ export const searchByPITool = {
         success: true,
         data: limitedAwards,
         metadata: {
-          totalResults: limitedAwards.length,
+          totalResults: totalMatches,
           offset: validatedInput.offset || 0,
           limit: validatedInput.limit || 25,
           hasMore: hasMoreResults || allAwards.length > limitedAwards.length,

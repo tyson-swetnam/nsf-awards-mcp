@@ -22,7 +22,7 @@ Before installing, ensure you have:
 
 ### Required
 
-- **Node.js**: Version 18.x or higher (LTS recommended)
+- **Node.js**: Version 20.x or higher (LTS recommended)
 - **npm**: Version 9.x or higher (comes with Node.js)
 
 ### Optional
@@ -35,7 +35,7 @@ Before installing, ensure you have:
 Run these commands to verify:
 
 ```bash
-node --version    # Should show v18.x or higher
+node --version    # Should show v20.x or higher
 npm --version     # Should show 9.x or higher
 ```
 
@@ -196,7 +196,7 @@ Install Docker:
 Create `Dockerfile` in the project root:
 
 ```dockerfile
-FROM node:18-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
@@ -555,7 +555,7 @@ The server is running correctly. Press `Ctrl+C` to stop.
 ### 3. Verify Node.js Can Find Dependencies
 
 ```bash
-node -e "require('@modelcontextprotocol/sdk')"
+node -e "import('@modelcontextprotocol/server').then(() => console.log('ok'))"
 ```
 
 No output means success. Error means dependencies not installed.
@@ -798,7 +798,7 @@ After successful installation:
 ### Minimum Requirements
 
 - **OS**: macOS 10.15+, Windows 10+, or modern Linux
-- **Node.js**: 18.x or higher
+- **Node.js**: 20.x or higher
 - **RAM**: 512 MB
 - **Disk**: 200 MB for installation
 - **Network**: Internet connection for NSF API access

@@ -3,12 +3,7 @@
  * Institution-specific award searches
  */
 
-import { zodToJsonSchema } from 'zod-to-json-schema';
-import {
-  SearchByInstitutionSchema,
-  SearchByInstitutionInput,
-  ToolResponse
-} from '../types/mcp-tools.types.js';
+import { SearchByInstitutionSchema, ToolResponse } from '../types/mcp-tools.types.js';
 import { NSFAward, NSFSearchParams } from '../types/nsf-api.types.js';
 import { nsfApiClient } from '../client/nsf-api-client.js';
 import { logger } from '../utils/logger.js';
@@ -18,14 +13,15 @@ import { logger } from '../utils/logger.js';
  */
 export const searchByInstitutionTool = {
   name: 'search_by_institution',
+  title: 'Search NSF Awards by Institution',
   description: 'Search NSF awards by institution name with optional filters',
-  inputSchema: zodToJsonSchema(SearchByInstitutionSchema),
+  inputSchema: SearchByInstitutionSchema,
   handler: async (input: unknown): Promise<ToolResponse<NSFAward[]>> => {
     const startTime = Date.now();
 
     try {
       // Validate input
-      const validatedInput = SearchByInstitutionSchema.parse(input) as SearchByInstitutionInput;
+      const validatedInput = SearchByInstitutionSchema.parse(input);
 
       logger.info('Executing search_by_institution', {
         institution: validatedInput.institutionName,
@@ -35,8 +31,8 @@ export const searchByInstitutionTool = {
       // Build search parameters
       const searchParams: Partial<NSFSearchParams> = {
         awardeeStateCode: validatedInput.stateCode,
-        startDateFrom: validatedInput.startDateFrom,
-        startDateTo: validatedInput.startDateTo,
+        startDateStart: validatedInput.startDateFrom,
+        startDateEnd: validatedInput.startDateTo,
         offset: validatedInput.offset || 0,
         rpp: Math.min(validatedInput.limit || 25, 25)
       };
@@ -50,10 +46,9 @@ export const searchByInstitutionTool = {
       // If includeSubawards is false, filter out subawards
       let filteredAwards = result.awards;
       if (!validatedInput.includeSubawards) {
-        filteredAwards = result.awards.filter(award => {
+        filteredAwards = result.awards.filter((award) => {
           // Subawards typically have transType of 'SUBAWARD' or specific indicators
-          return !award.transType ||
-                 !award.transType.toLowerCase().includes('subaward');
+          return !award.transType || !award.transType.toLowerCase().includes('subaward');
         });
       }
 
@@ -61,7 +56,7 @@ export const searchByInstitutionTool = {
 
       // Group awards by program if there are results
       const programDistribution: Record<string, number> = {};
-      filteredAwards.forEach(award => {
+      filteredAwards.forEach((award) => {
         const program = award.fundProgramName || award.primaryProgram || 'Unknown';
         programDistribution[program] = (programDistribution[program] || 0) + 1;
       });
@@ -77,7 +72,7 @@ export const searchByInstitutionTool = {
         success: true,
         data: filteredAwards,
         metadata: {
-          totalResults: filteredAwards.length,
+          totalResults: result.totalResults,
           offset: validatedInput.offset || 0,
           limit: validatedInput.limit || 25,
           hasMore: result.hasMore,

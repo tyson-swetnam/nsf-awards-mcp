@@ -9,12 +9,12 @@ import {
   NSFSearchParams,
   NSFSearchResponse,
   NSFAward,
-  NSFProjectOutcomesResponse,
   NSFErrorResponse,
   NSFProjectOutcome
 } from '../types/nsf-api.types.js';
 import { logger } from '../utils/logger.js';
 import { normalizeToNSFDate } from '../utils/date-utils.js';
+import { htmlToText } from '../utils/html-utils.js';
 
 /**
  * Configuration for the NSF API client
@@ -46,7 +46,7 @@ export class NSFApiClient {
       baseURL,
       timeout,
       headers: {
-        'Accept': 'application/json, application/xml',
+        Accept: 'application/json, application/xml',
         'User-Agent': 'NSF-Awards-MCP-Server/1.0'
       }
     });
@@ -60,8 +60,10 @@ export class NSFApiClient {
       },
       retryCondition: (error: AxiosError) => {
         // Retry on network errors and 5xx status codes
-        return axiosRetry.isNetworkOrIdempotentRequestError(error) ||
-          (error.response?.status ? error.response.status >= 500 : false);
+        return (
+          axiosRetry.isNetworkOrIdempotentRequestError(error) ||
+          (error.response?.status ? error.response.status >= 500 : false)
+        );
       }
     });
 
@@ -71,13 +73,13 @@ export class NSFApiClient {
         logger.debug('NSF API Request', {
           method: config.method,
           url: config.url,
-          params: config.params
+          params: config.params as unknown
         });
         return config;
       },
-      (error) => {
+      (error: unknown) => {
         logger.error('NSF API Request Error', { error });
-        return Promise.reject(error);
+        return Promise.reject(error instanceof Error ? error : new Error(String(error)));
       }
     );
 
@@ -90,7 +92,7 @@ export class NSFApiClient {
         });
         return response;
       },
-      (error) => {
+      (error: AxiosError) => {
         logger.error('NSF API Response Error', {
           status: error.response?.status,
           url: error.config?.url,
@@ -118,22 +120,32 @@ export class NSFApiClient {
         processedParams.rpp = 25;
       }
 
+      // An unquoted multi-word awardeeName matches any one of the words
+      // ("University of Arizona" returns every "University"); quoting it
+      // makes the API match the phrase.
+      if (processedParams.awardeeName && /\s/.test(processedParams.awardeeName.trim())) {
+        processedParams.awardeeName = `"${processedParams.awardeeName.trim().replace(/"/g, '')}"`;
+      }
+
       const response = await this.client.get<NSFSearchResponse | string>('/awards.json', {
-        params: {
-          ...processedParams,
-          printFields: params.printFields || undefined
-        }
+        params: processedParams
       });
 
       const data = await this.parseResponse<NSFSearchResponse>(response.data);
+      this.assertNoServiceError(data);
       const awards = this.normalizeAwards(data.response?.award);
 
-      // Determine if there are more results
-      const hasMore = awards.length === (params.rpp || 25);
+      // Prefer the API's own total; fall back to a full page meaning "maybe more"
+      const totalCount = data.response?.metadata?.totalCount;
+      const offset = processedParams.offset ?? 0;
+      const hasMore =
+        totalCount !== undefined
+          ? offset + awards.length < totalCount
+          : awards.length === (processedParams.rpp || 25);
 
       return {
         awards,
-        totalResults: awards.length,
+        totalResults: totalCount ?? awards.length,
         hasMore
       };
     } catch (error) {
@@ -144,21 +156,16 @@ export class NSFApiClient {
   /**
    * Get detailed information about a specific award
    */
-  async getAwardDetails(awardId: string, includeAbstract: boolean = false): Promise<NSFAward | null> {
+  async getAwardDetails(awardId: string): Promise<NSFAward | null> {
     try {
-      const params: any = {};
-
-      if (includeAbstract) {
-        // Request all common fields plus abstractText
-        params.printFields = 'id,title,abstractText,agency,awardeeCity,awardeeName,awardeeStateCode,fundsObligatedAmt,date,startDate,expDate,piFirstName,piLastName,pdPIName,estimatedTotalAmt,fundProgramName,primaryProgram,transType,perfLocation,perfCity,perfStateCode,ueiNumber,publicAccessMandate';
-      }
-
+      // The API always returns the full record (abstract included);
+      // callers strip abstractText when they don't want it.
       const response = await this.client.get<NSFSearchResponse | string>(
-        `/awards/${awardId}.json`,
-        { params }
+        `/awards/${encodeURIComponent(awardId)}.json`
       );
 
       const data = await this.parseResponse<NSFSearchResponse>(response.data);
+      this.assertNoServiceError(data);
       const awards = this.normalizeAwards(data.response?.award);
 
       return awards.length > 0 ? awards[0] : null;
@@ -171,18 +178,34 @@ export class NSFApiClient {
   }
 
   /**
-   * Get project outcomes for a specific award
+   * Get the Project Outcomes Report for a specific award.
+   * Returns null when the award does not exist or has no report yet.
    */
   async getProjectOutcomes(awardId: string): Promise<NSFProjectOutcome | null> {
     try {
-      const response = await this.client.get<NSFProjectOutcomesResponse | string>(
-        `/awards/${awardId}/projectoutcomes.json`
+      const response = await this.client.get<NSFSearchResponse | string>(
+        `/awards/${encodeURIComponent(awardId)}/projectoutcomes.json`
       );
 
-      const data = await this.parseResponse<NSFProjectOutcomesResponse>(response.data);
-      const outcomes = this.normalizeProjectOutcomes(data.response?.projectOutcomes);
+      const data = await this.parseResponse<NSFSearchResponse>(response.data);
+      this.assertNoServiceError(data);
+      const award = this.normalizeAwards(data.response?.award)[0];
+      const html = award?.projectOutComesReport;
 
-      return outcomes.length > 0 ? outcomes[0] : null;
+      if (!award || !html) {
+        return null;
+      }
+
+      return {
+        awardId: award.id,
+        title: award.title,
+        pi: award.pdPIName,
+        awardee: award.awardeeName ?? award.awardee,
+        startDate: award.startDate,
+        expDate: award.expDate,
+        outcomesReport: htmlToText(html),
+        outcomesReportHtml: html
+      };
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 404) {
         return null;
@@ -204,7 +227,7 @@ export class NSFApiClient {
   }> {
     const params: NSFSearchParams = {
       ...additionalParams,
-      awardeeOrganization: institutionName,
+      awardeeName: institutionName,
       rpp: additionalParams.rpp || 25
     };
 
@@ -241,20 +264,22 @@ export class NSFApiClient {
 
     // List of date fields that need processing
     const dateFields = [
-      'startDateFrom', 'startDateTo',
-      'expDateFrom', 'expDateTo',
-      'dateStart', 'dateEnd',
-      'awardsDateStart', 'awardsDateEnd'
+      'startDateStart',
+      'startDateEnd',
+      'expDateStart',
+      'expDateEnd',
+      'dateStart',
+      'dateEnd'
     ] as const;
 
     for (const field of dateFields) {
       if (processed[field]) {
-        const normalized = normalizeToNSFDate(processed[field] as string);
+        const normalized = normalizeToNSFDate(processed[field]);
         if (normalized) {
-          (processed as any)[field] = normalized;
+          processed[field] = normalized;
         } else {
-          logger.warn(`Invalid date format for ${field}: ${processed[field]}`);
-          delete (processed as any)[field];
+          logger.warn(`Invalid date format for ${field}: ${String(processed[field])}`);
+          delete processed[field];
         }
       }
     }
@@ -263,9 +288,25 @@ export class NSFApiClient {
   }
 
   /**
+   * The API reports rejected requests (unknown parameters, bad values) as an
+   * HTTP 200 with a serviceNotification instead of an error status. Surface
+   * them as errors rather than as an empty result set.
+   */
+  private assertNoServiceError(data: NSFSearchResponse): void {
+    const errors = (data.response?.serviceNotification ?? []).filter(
+      (n) => n.notificationType?.toUpperCase() === 'ERROR'
+    );
+    if (errors.length > 0) {
+      throw new Error(
+        errors.map((n) => `${n.notificationCode}: ${n.notificationMessage}`).join('; ')
+      );
+    }
+  }
+
+  /**
    * Parse response data (handles both JSON and XML)
    */
-  private async parseResponse<T>(data: any): Promise<T> {
+  private async parseResponse<T>(data: unknown): Promise<T> {
     // If data is already an object, return it
     if (typeof data === 'object' && data !== null) {
       return data as T;
@@ -279,7 +320,7 @@ export class NSFApiClient {
       } catch {
         // If JSON parsing fails, try XML
         try {
-          const parsed = await parseStringPromise(data, {
+          const parsed: unknown = await parseStringPromise(data, {
             explicitArray: false,
             ignoreAttrs: true
           });
@@ -305,21 +346,9 @@ export class NSFApiClient {
   }
 
   /**
-   * Normalize project outcomes to always return an array
-   */
-  private normalizeProjectOutcomes(
-    outcomes: NSFProjectOutcome | NSFProjectOutcome[] | undefined
-  ): NSFProjectOutcome[] {
-    if (!outcomes) {
-      return [];
-    }
-    return Array.isArray(outcomes) ? outcomes : [outcomes];
-  }
-
-  /**
    * Handle and transform API errors
    */
-  private handleError(error: any, operation: string): Error {
+  private handleError(error: unknown, operation: string): Error {
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError<NSFErrorResponse>;
 

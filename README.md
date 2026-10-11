@@ -1,7 +1,7 @@
 # NSF Awards MCP Server
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-purple)](https://modelcontextprotocol.io/)
 
@@ -34,7 +34,7 @@ A Model Context Protocol (MCP) server that provides structured access to the U.S
 
 - **Comprehensive Award Search**: Search NSF awards with multiple filter parameters including keywords, institution names, PI names, date ranges, and funding amounts
 - **Detailed Award Information**: Retrieve complete award details including abstracts, funding information, and project metadata
-- **Project Outcomes**: Access project outcomes, publications, and research results
+- **Project Outcomes**: Read the Project Outcomes Report a PI files after an award ends
 - **Institution-Specific Searches**: Find all awards associated with specific institutions
 - **Principal Investigator Searches**: Search awards by PI name with support for Co-PI searches
 - **Robust Error Handling**: Comprehensive error handling with retry logic and detailed error messages
@@ -61,7 +61,7 @@ Retrieve complete information about a specific award by ID:
 - Institution and PI information
 
 ### 3. `get_project_outcomes`
-Access project results and publications:
+Read an award's Project Outcomes Report:
 - Research accomplishments
 - Publications with DOIs
 - Conference presentations
@@ -85,7 +85,7 @@ Search awards by Principal Investigator:
 
 ### Prerequisites
 
-- Node.js 18.x or higher
+- Node.js 20.x or higher
 - npm 9.x or higher
 
 ### Installation
@@ -240,7 +240,7 @@ See **[DEVELOPMENT.md](DEVELOPMENT.md)**.
 ### NSF API Integration
 
 The server integrates with the NSF Award Search API v1:
-- Base URL: `https://api.nsf.gov/services/v1/`
+- Base URL: `https://www.research.gov/awardapi-service/v1/`
 - No authentication required (public API)
 - Supports both JSON and XML responses (JSON preferred)
 - Maximum 25 results per page
@@ -287,13 +287,13 @@ See [DEVELOPMENT.md](DEVELOPMENT.md#testing) for detailed testing information.
 - Restart your MCP client completely
 
 **Server fails to start:**
-- Check Node.js version: `node --version` (must be 18.x or higher)
+- Check Node.js version: `node --version` (must be 20.x or higher)
 - Rebuild the project: `npm run build`
 - Check for error messages in client logs
 
 **API errors:**
 - Verify internet connection
-- Check NSF API is accessible: `curl https://api.nsf.gov/services/v1/awards.json?rpp=1`
+- Check NSF API is accessible: `curl https://www.research.gov/awardapi-service/v1/awards.json?rpp=1`
 
 For comprehensive troubleshooting guides, see:
 - **[INSTALL.md](INSTALL.md#troubleshooting)** - Installation issues

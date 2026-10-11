@@ -8,7 +8,7 @@ This is an MCP (Model Context Protocol) server for the U.S. National Science Fou
 
 ## NSF API Integration
 
-**Base URL:** `http://api.nsf.gov/services/v1/`
+**Base URL:** `https://www.research.gov/awardapi-service/v1/`
 
 **Key Endpoints:**
 - `/awards.{format}` - Search awards
@@ -21,13 +21,29 @@ This is an MCP (Model Context Protocol) server for the U.S. National Science Fou
 - No authentication required
 - Public data only
 
+**Live API behaviour (verified 2026-10-11, see `scripts/probe-nsf-api.sh`):**
+- Rejected parameters come back as HTTP 200 with
+  `response.serviceNotification` (`AwardAPI-002 Invalid parameter(s) {...}`), not an
+  error status; the client turns these into errors
+- Date ranges are `startDateStart/End`, `expDateStart/End`, `dateStart/End`; the
+  `*From/*To` spellings, `awardsDateStart/End`, `awardeeOrganization`, `nsfOrganization`,
+  `nsfDirectorateName`, `awardType`, `fundingAgencyCode`, `awardingAgencyCode`,
+  `perfState`, `sortBy` and `sortDir` are invalid
+- `printFields` is accepted but ignored (full records always return)
+- Unquoted multi-word `awardeeName` matches any word; quote it to match the phrase
+- `ActiveAwards=true` / `ExpiredAwards=true` filter by status
+- `offset` is a 0-based record offset; `response.metadata.totalCount` gives the total
+  (capped at 10000), and ordering among ties is not stable between calls
+- `/awards/{id}/projectoutcomes.json` returns `response.award[]`; the report is the
+  HTML field `projectOutComesReport` (capital C), absent for older awards
+
 ## Planned MCP Tools
 
 When implementing, create these tools in the following priority order:
 
 1. **search_nsf_awards** - Primary search tool with multiple filter parameters
 2. **get_award_details** - Retrieve complete award information by ID
-3. **get_project_outcomes** - Fetch project results and publications
+3. **get_project_outcomes** - Fetch the Project Outcomes Report (projectOutComesReport field)
 4. **search_by_institution** - Institution-specific award searches
 5. **search_by_pi** - Principal Investigator searches
 
@@ -50,7 +66,7 @@ Since this is a new project, you'll need to initialize it first:
 # Initialize TypeScript project
 npm init -y
 npm install --save-dev typescript @types/node
-npm install @modelcontextprotocol/sdk
+npm install @modelcontextprotocol/server zod
 
 # Create TypeScript config
 npx tsc --init

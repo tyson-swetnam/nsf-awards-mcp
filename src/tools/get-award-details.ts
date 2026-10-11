@@ -3,12 +3,7 @@
  * Retrieve complete award information by ID
  */
 
-import { zodToJsonSchema } from 'zod-to-json-schema';
-import {
-  GetAwardDetailsSchema,
-  GetAwardDetailsInput,
-  ToolResponse
-} from '../types/mcp-tools.types.js';
+import { GetAwardDetailsSchema, ToolResponse } from '../types/mcp-tools.types.js';
 import { NSFAward } from '../types/nsf-api.types.js';
 import { nsfApiClient } from '../client/nsf-api-client.js';
 import { logger } from '../utils/logger.js';
@@ -18,22 +13,20 @@ import { logger } from '../utils/logger.js';
  */
 export const getAwardDetailsTool = {
   name: 'get_award_details',
+  title: 'Get NSF Award Details',
   description: 'Get detailed information about a specific NSF award by its ID',
-  inputSchema: zodToJsonSchema(GetAwardDetailsSchema),
+  inputSchema: GetAwardDetailsSchema,
   handler: async (input: unknown): Promise<ToolResponse<NSFAward>> => {
     const startTime = Date.now();
 
     try {
       // Validate input
-      const validatedInput = GetAwardDetailsSchema.parse(input) as GetAwardDetailsInput;
+      const validatedInput = GetAwardDetailsSchema.parse(input);
 
       logger.info('Executing get_award_details', { awardId: validatedInput.awardId });
 
       // Fetch award details
-      const award = await nsfApiClient.getAwardDetails(
-        validatedInput.awardId,
-        validatedInput.includeAbstract ?? true
-      );
+      const award = await nsfApiClient.getAwardDetails(validatedInput.awardId);
 
       if (!award) {
         logger.warn('Award not found', { awardId: validatedInput.awardId });
@@ -49,7 +42,7 @@ export const getAwardDetailsTool = {
 
       // Filter out abstract if not requested
       if (!validatedInput.includeAbstract && award.abstractText) {
-        const { abstractText, ...awardWithoutAbstract } = award;
+        const { abstractText: _abstractText, ...awardWithoutAbstract } = award;
         const executionTime = Date.now() - startTime;
 
         logger.info('get_award_details completed', {
@@ -59,7 +52,7 @@ export const getAwardDetailsTool = {
 
         return {
           success: true,
-          data: awardWithoutAbstract as NSFAward,
+          data: awardWithoutAbstract,
           metadata: {
             totalResults: 1,
             offset: 0,

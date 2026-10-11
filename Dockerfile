@@ -4,7 +4,10 @@
 # =============================================================================
 # Stage 1: TypeScript Builder
 # =============================================================================
-FROM node:18-alpine AS ts-builder
+# Build on the runner's native platform: the output is plain JavaScript and the
+# runtime dependencies are pure JS, so node_modules is portable. Running npm
+# under QEMU for linux/arm64 crashes with "Illegal instruction".
+FROM --platform=$BUILDPLATFORM node:22-alpine AS ts-builder
 
 # Set working directory
 WORKDIR /app
@@ -20,8 +23,7 @@ RUN apk add --no-cache \
 COPY package.json package-lock.json ./
 
 # Install dependencies
-RUN npm ci --only=production && \
-    npm ci --only=development && \
+RUN npm ci && \
     npm cache clean --force
 
 # Copy source code
@@ -31,8 +33,9 @@ COPY . .
 RUN npm run build && \
     npm run type-check
 
-# Run tests to ensure build quality
-RUN npm test
+# Tests run in CI's quality job (tests/ is excluded by .dockerignore);
+# drop dev dependencies before the runtime stage copies node_modules
+RUN npm prune --omit=dev
 
 # =============================================================================
 # Stage 2: Go Builder (prepared for future migration)
@@ -63,7 +66,7 @@ COPY --from=ts-builder /app/package.json ./
 # =============================================================================
 # Stage 3: Production Runtime
 # =============================================================================
-FROM node:18-alpine AS runtime
+FROM node:22-alpine AS runtime
 
 # Set working directory
 WORKDIR /app
@@ -97,9 +100,8 @@ EXPOSE 3000
 ENV NODE_ENV=production
 ENV LOG_LEVEL=info
 
-# Add health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/health || exit 1
+# No HEALTHCHECK: the server speaks MCP over stdio (run with `docker run -i`),
+# so there is no HTTP endpoint to probe.
 
 # Use dumb-init for proper signal handling
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
@@ -111,7 +113,7 @@ CMD ["node", "build/index.js"]
 # Metadata
 # =============================================================================
 LABEL maintainer="NSF Awards MCP Server"
-LABEL version="1.0.0"
+LABEL version="1.1.0"
 LABEL description="MCP server for NSF Awards API integration"
 LABEL org.opencontainers.image.source="https://github.com/user/nsf-awards-mcp"
 LABEL org.opencontainers.image.documentation="https://github.com/user/nsf-awards-mcp/blob/main/README.md"

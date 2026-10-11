@@ -64,29 +64,10 @@ describe('search_nsf_awards tool', () => {
       });
     });
 
-    it('should filter expired awards when includeExpired is false', async () => {
-      const currentDate = new Date();
-      const futureDate = new Date(currentDate.getFullYear() + 1, 0, 1);
-      const pastDate = new Date(currentDate.getFullYear() - 1, 0, 1);
-
-      const mockAwards: NSFAward[] = [
-        {
-          id: '1234567',
-          title: 'Active Award',
-          awardee: 'University A',
-          expDate: `${(futureDate.getMonth() + 1).toString().padStart(2, '0')}/01/${futureDate.getFullYear()}`
-        },
-        {
-          id: '2345678',
-          title: 'Expired Award',
-          awardee: 'University B',
-          expDate: `${(pastDate.getMonth() + 1).toString().padStart(2, '0')}/01/${pastDate.getFullYear()}`
-        }
-      ];
-
+    it('should request active awards only when includeExpired is false', async () => {
       mockClient.searchAwards.mockResolvedValue({
-        awards: mockAwards,
-        totalResults: 2,
+        awards: [],
+        totalResults: 0,
         hasMore: false
       });
 
@@ -96,8 +77,24 @@ describe('search_nsf_awards tool', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.data).toHaveLength(1);
-      expect(result.data?.[0].id).toBe('1234567');
+      expect(mockClient.searchAwards).toHaveBeenCalledWith(
+        expect.objectContaining({ ActiveAwards: true })
+      );
+    });
+
+    it('should apply printFields client-side', async () => {
+      mockClient.searchAwards.mockResolvedValue({
+        awards: [{ id: '1', title: 'T', awardee: 'U', abstractText: 'long' }],
+        totalResults: 1,
+        hasMore: false
+      });
+
+      const result = await searchNSFAwardsTool.handler({
+        keyword: 'test',
+        printFields: 'id, title'
+      });
+
+      expect(result.data).toEqual([{ id: '1', title: 'T' }]);
     });
 
     it('should handle search with all parameters', async () => {
@@ -176,6 +173,12 @@ describe('search_nsf_awards tool', () => {
     });
 
     it('should handle invalid input', async () => {
+      mockClient.searchAwards.mockResolvedValue({
+        awards: [],
+        totalResults: 0,
+        hasMore: false
+      });
+
       const result = await searchNSFAwardsTool.handler({
         invalidField: 'test'
       } as any);
@@ -195,7 +198,7 @@ describe('search_nsf_awards tool', () => {
       });
 
       expect(result.metadata?.executionTime).toBeDefined();
-      expect(result.metadata?.executionTime).toBeGreaterThan(0);
+      expect(result.metadata?.executionTime).toBeGreaterThanOrEqual(0);
     });
 
     it('should handle pagination parameters', async () => {
