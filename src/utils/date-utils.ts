@@ -16,11 +16,7 @@ export function isValidNSFDateFormat(dateString: string): boolean {
   const [month, day, year] = dateString.split('/').map(Number);
   const date = new Date(year, month - 1, day);
 
-  return (
-    date.getFullYear() === year &&
-    date.getMonth() === month - 1 &&
-    date.getDate() === day
-  );
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 }
 
 /**
@@ -30,7 +26,7 @@ export function toNSFDateFormat(date: Date | string): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
 
   if (isNaN(dateObj.getTime())) {
-    throw new Error(`Invalid date: ${date}`);
+    throw new Error(`Invalid date: ${String(date)}`);
   }
 
   const month = String(dateObj.getMonth() + 1).padStart(2, '0');

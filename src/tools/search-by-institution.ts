@@ -3,11 +3,7 @@
  * Institution-specific award searches
  */
 
-import {
-  SearchByInstitutionSchema,
-  SearchByInstitutionInput,
-  ToolResponse
-} from '../types/mcp-tools.types.js';
+import { SearchByInstitutionSchema, ToolResponse } from '../types/mcp-tools.types.js';
 import { NSFAward, NSFSearchParams } from '../types/nsf-api.types.js';
 import { nsfApiClient } from '../client/nsf-api-client.js';
 import { logger } from '../utils/logger.js';
@@ -25,7 +21,7 @@ export const searchByInstitutionTool = {
 
     try {
       // Validate input
-      const validatedInput = SearchByInstitutionSchema.parse(input) as SearchByInstitutionInput;
+      const validatedInput = SearchByInstitutionSchema.parse(input);
 
       logger.info('Executing search_by_institution', {
         institution: validatedInput.institutionName,
@@ -50,10 +46,9 @@ export const searchByInstitutionTool = {
       // If includeSubawards is false, filter out subawards
       let filteredAwards = result.awards;
       if (!validatedInput.includeSubawards) {
-        filteredAwards = result.awards.filter(award => {
+        filteredAwards = result.awards.filter((award) => {
           // Subawards typically have transType of 'SUBAWARD' or specific indicators
-          return !award.transType ||
-                 !award.transType.toLowerCase().includes('subaward');
+          return !award.transType || !award.transType.toLowerCase().includes('subaward');
         });
       }
 
@@ -61,7 +56,7 @@ export const searchByInstitutionTool = {
 
       // Group awards by program if there are results
       const programDistribution: Record<string, number> = {};
-      filteredAwards.forEach(award => {
+      filteredAwards.forEach((award) => {
         const program = award.fundProgramName || award.primaryProgram || 'Unknown';
         programDistribution[program] = (programDistribution[program] || 0) + 1;
       });

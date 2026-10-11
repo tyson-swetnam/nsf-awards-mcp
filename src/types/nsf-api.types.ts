@@ -163,13 +163,13 @@ export interface NSFSearchParams {
   pdPIName?: string;
   coPDPI?: string;
   startDateFrom?: string; // Format: mm/dd/yyyy
-  startDateTo?: string;   // Format: mm/dd/yyyy
-  expDateFrom?: string;    // Format: mm/dd/yyyy
-  expDateTo?: string;      // Format: mm/dd/yyyy
-  dateStart?: string;      // Format: mm/dd/yyyy
-  dateEnd?: string;        // Format: mm/dd/yyyy
+  startDateTo?: string; // Format: mm/dd/yyyy
+  expDateFrom?: string; // Format: mm/dd/yyyy
+  expDateTo?: string; // Format: mm/dd/yyyy
+  dateStart?: string; // Format: mm/dd/yyyy
+  dateEnd?: string; // Format: mm/dd/yyyy
   awardsDateStart?: string; // Format: mm/dd/yyyy
-  awardsDateEnd?: string;   // Format: mm/dd/yyyy
+  awardsDateEnd?: string; // Format: mm/dd/yyyy
   estimatedTotalAmtFrom?: number;
   estimatedTotalAmtTo?: number;
   estimatedAwardAmountFrom?: number;

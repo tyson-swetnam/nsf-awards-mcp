@@ -8,7 +8,10 @@
 import { McpServer } from '@modelcontextprotocol/server';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import type { CallToolResult } from '@modelcontextprotocol/server';
+import { realpathSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { allTools } from './tools/index.js';
+import type { ToolResponse } from './types/mcp-tools.types.js';
 import { logger } from './utils/logger.js';
 
 /**
@@ -23,7 +26,7 @@ const SERVER_INFO = {
 /**
  * Convert a tool handler's ToolResponse into an MCP CallToolResult
  */
-function toCallToolResult(toolName: string, result: any): CallToolResult {
+function toCallToolResult(toolName: string, result: ToolResponse<unknown>): CallToolResult {
   if (result.success) {
     return {
       content: [
@@ -50,7 +53,7 @@ function toCallToolResult(toolName: string, result: any): CallToolResult {
 /**
  * Create and configure the MCP server
  */
-async function createServer(): Promise<McpServer> {
+function createServer(): McpServer {
   const server = new McpServer(
     {
       name: SERVER_INFO.name,
@@ -66,7 +69,7 @@ async function createServer(): Promise<McpServer> {
   // Register every tool; the SDK validates arguments against the Zod schema
   // and advertises the derived JSON Schema in tools/list.
   for (const tool of allTools) {
-    const handler = tool.handler as (input: unknown) => Promise<any>;
+    const handler = tool.handler as (input: unknown) => Promise<ToolResponse<unknown>>;
 
     server.registerTool(
       tool.name,
@@ -114,18 +117,21 @@ async function createServer(): Promise<McpServer> {
  * initialize is pinned to an instance from the same factory, so both are
  * served by identical tool definitions.
  */
-async function main(): Promise<void> {
+function main(): void {
   logger.info('Starting NSF Awards MCP Server', SERVER_INFO);
 
   try {
-    serveStdio(async ({ era }) => {
-      logger.debug('Creating server instance', { era });
-      return createServer();
-    }, {
-      onerror: (error) => {
-        logger.error('Server error', { error });
+    serveStdio(
+      ({ era }) => {
+        logger.debug('Creating server instance', { era });
+        return createServer();
+      },
+      {
+        onerror: (error) => {
+          logger.error('Server error', { error });
+        }
       }
-    });
+    );
 
     logger.info('NSF Awards MCP Server started successfully');
 
@@ -150,7 +156,6 @@ async function main(): Promise<void> {
       logger.error('Unhandled rejection', { reason, promise });
       process.exit(1);
     });
-
   } catch (error) {
     logger.error('Failed to start server', { error });
     process.exit(1);
@@ -158,11 +163,10 @@ async function main(): Promise<void> {
 }
 
 // Start the server if this is the main module
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((error) => {
-    logger.error('Fatal error', { error });
-    process.exit(1);
-  });
+// (resolve symlinks so it also works when launched through an npm bin link)
+const entryPath = process.argv[1] ? realpathSync(process.argv[1]) : '';
+if (entryPath && import.meta.url === pathToFileURL(entryPath).href) {
+  main();
 }
 
 export { createServer, SERVER_INFO };

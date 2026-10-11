@@ -3,11 +3,7 @@
  * Fetch project outcomes for an award
  */
 
-import {
-  GetProjectOutcomesSchema,
-  GetProjectOutcomesInput,
-  ToolResponse
-} from '../types/mcp-tools.types.js';
+import { GetProjectOutcomesSchema, ToolResponse } from '../types/mcp-tools.types.js';
 import { NSFProjectOutcome } from '../types/nsf-api.types.js';
 import { nsfApiClient } from '../client/nsf-api-client.js';
 import { logger } from '../utils/logger.js';
@@ -25,7 +21,7 @@ export const getProjectOutcomesTool = {
 
     try {
       // Validate input
-      const validatedInput = GetProjectOutcomesSchema.parse(input) as GetProjectOutcomesInput;
+      const validatedInput = GetProjectOutcomesSchema.parse(input);
 
       logger.info('Executing get_project_outcomes', { awardId: validatedInput.awardId });
 

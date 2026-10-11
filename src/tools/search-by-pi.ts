@@ -3,11 +3,7 @@
  * Search by Principal Investigator
  */
 
-import {
-  SearchByPISchema,
-  SearchByPIInput,
-  ToolResponse
-} from '../types/mcp-tools.types.js';
+import { SearchByPISchema, ToolResponse } from '../types/mcp-tools.types.js';
 import { NSFAward, NSFSearchParams } from '../types/nsf-api.types.js';
 import { nsfApiClient } from '../client/nsf-api-client.js';
 import { logger } from '../utils/logger.js';
@@ -25,7 +21,7 @@ export const searchByPITool = {
 
     try {
       // Validate input
-      const validatedInput = SearchByPISchema.parse(input) as SearchByPIInput;
+      const validatedInput = SearchByPISchema.parse(input);
 
       logger.info('Executing search_by_pi', {
         firstName: validatedInput.firstName,
@@ -65,10 +61,8 @@ export const searchByPITool = {
           const coPIResult = await nsfApiClient.searchAwards(coPIParams);
 
           // Merge results and remove duplicates based on award ID
-          const awardIds = new Set(allAwards.map(a => a.id));
-          const uniqueCoPIAwards = coPIResult.awards.filter(
-            award => !awardIds.has(award.id)
-          );
+          const awardIds = new Set(allAwards.map((a) => a.id));
+          const uniqueCoPIAwards = coPIResult.awards.filter((award) => !awardIds.has(award.id));
 
           allAwards = [...allAwards, ...uniqueCoPIAwards];
           hasMoreResults = hasMoreResults || coPIResult.hasMore;
@@ -79,7 +73,9 @@ export const searchByPITool = {
 
       // Sort awards by start date (most recent first)
       allAwards.sort((a, b) => {
-        if (!a.startDate || !b.startDate) return 0;
+        if (!a.startDate || !b.startDate) {
+          return 0;
+        }
         try {
           const [aMonth, aDay, aYear] = a.startDate.split('/').map(Number);
           const [bMonth, bDay, bYear] = b.startDate.split('/').map(Number);
@@ -102,7 +98,7 @@ export const searchByPITool = {
       }, 0);
 
       const institutionDistribution: Record<string, number> = {};
-      limitedAwards.forEach(award => {
+      limitedAwards.forEach((award) => {
         const org = award.awardeeOrganization || award.awardeeName || 'Unknown';
         institutionDistribution[org] = (institutionDistribution[org] || 0) + 1;
       });

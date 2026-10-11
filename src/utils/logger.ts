@@ -14,7 +14,7 @@ const customFormat = winston.format.combine(
   winston.format.errors({ stack: true }),
   winston.format.json(),
   winston.format.printf(({ timestamp, level, message, ...metadata }) => {
-    let msg = `${timestamp} [${level.toUpperCase()}]: ${message}`;
+    let msg = `${String(timestamp)} [${level.toUpperCase()}]: ${String(message)}`;
 
     // Add metadata if present
     if (Object.keys(metadata).length > 0) {
@@ -38,28 +38,29 @@ export const logger = winston.createLogger({
     // Console transport - writes to stderr for MCP compatibility
     new winston.transports.Console({
       stderrLevels: ['error', 'warn', 'info', 'debug', 'verbose'], // All logs to stderr
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple()
-      )
+      format: winston.format.combine(winston.format.colorize(), winston.format.simple())
     })
   ]
 });
 
 // Add file transport in production
 if (process.env.NODE_ENV === 'production') {
-  logger.add(new winston.transports.File({
-    filename: 'logs/error.log',
-    level: 'error',
-    maxsize: 5242880, // 5MB
-    maxFiles: 5
-  }));
+  logger.add(
+    new winston.transports.File({
+      filename: 'logs/error.log',
+      level: 'error',
+      maxsize: 5242880, // 5MB
+      maxFiles: 5
+    })
+  );
 
-  logger.add(new winston.transports.File({
-    filename: 'logs/combined.log',
-    maxsize: 5242880, // 5MB
-    maxFiles: 5
-  }));
+  logger.add(
+    new winston.transports.File({
+      filename: 'logs/combined.log',
+      maxsize: 5242880, // 5MB
+      maxFiles: 5
+    })
+  );
 }
 
 /**

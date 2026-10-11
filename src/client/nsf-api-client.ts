@@ -46,7 +46,7 @@ export class NSFApiClient {
       baseURL,
       timeout,
       headers: {
-        'Accept': 'application/json, application/xml',
+        Accept: 'application/json, application/xml',
         'User-Agent': 'NSF-Awards-MCP-Server/1.0'
       }
     });
@@ -60,8 +60,10 @@ export class NSFApiClient {
       },
       retryCondition: (error: AxiosError) => {
         // Retry on network errors and 5xx status codes
-        return axiosRetry.isNetworkOrIdempotentRequestError(error) ||
-          (error.response?.status ? error.response.status >= 500 : false);
+        return (
+          axiosRetry.isNetworkOrIdempotentRequestError(error) ||
+          (error.response?.status ? error.response.status >= 500 : false)
+        );
       }
     });
 
@@ -71,11 +73,11 @@ export class NSFApiClient {
         logger.debug('NSF API Request', {
           method: config.method,
           url: config.url,
-          params: config.params
+          params: config.params as unknown
         });
         return config;
       },
-      (error) => {
+      (error: unknown) => {
         logger.error('NSF API Request Error', { error });
         return Promise.reject(error);
       }
@@ -90,7 +92,7 @@ export class NSFApiClient {
         });
         return response;
       },
-      (error) => {
+      (error: AxiosError) => {
         logger.error('NSF API Response Error', {
           status: error.response?.status,
           url: error.config?.url,
@@ -144,13 +146,17 @@ export class NSFApiClient {
   /**
    * Get detailed information about a specific award
    */
-  async getAwardDetails(awardId: string, includeAbstract: boolean = false): Promise<NSFAward | null> {
+  async getAwardDetails(
+    awardId: string,
+    includeAbstract: boolean = false
+  ): Promise<NSFAward | null> {
     try {
-      const params: any = {};
+      const params: { printFields?: string } = {};
 
       if (includeAbstract) {
         // Request all common fields plus abstractText
-        params.printFields = 'id,title,abstractText,agency,awardeeCity,awardeeName,awardeeStateCode,fundsObligatedAmt,date,startDate,expDate,piFirstName,piLastName,pdPIName,estimatedTotalAmt,fundProgramName,primaryProgram,transType,perfLocation,perfCity,perfStateCode,ueiNumber,publicAccessMandate';
+        params.printFields =
+          'id,title,abstractText,agency,awardeeCity,awardeeName,awardeeStateCode,fundsObligatedAmt,date,startDate,expDate,piFirstName,piLastName,pdPIName,estimatedTotalAmt,fundProgramName,primaryProgram,transType,perfLocation,perfCity,perfStateCode,ueiNumber,publicAccessMandate';
       }
 
       const response = await this.client.get<NSFSearchResponse | string>(
@@ -241,20 +247,24 @@ export class NSFApiClient {
 
     // List of date fields that need processing
     const dateFields = [
-      'startDateFrom', 'startDateTo',
-      'expDateFrom', 'expDateTo',
-      'dateStart', 'dateEnd',
-      'awardsDateStart', 'awardsDateEnd'
+      'startDateFrom',
+      'startDateTo',
+      'expDateFrom',
+      'expDateTo',
+      'dateStart',
+      'dateEnd',
+      'awardsDateStart',
+      'awardsDateEnd'
     ] as const;
 
     for (const field of dateFields) {
       if (processed[field]) {
-        const normalized = normalizeToNSFDate(processed[field] as string);
+        const normalized = normalizeToNSFDate(processed[field]);
         if (normalized) {
-          (processed as any)[field] = normalized;
+          processed[field] = normalized;
         } else {
-          logger.warn(`Invalid date format for ${field}: ${processed[field]}`);
-          delete (processed as any)[field];
+          logger.warn(`Invalid date format for ${field}: ${String(processed[field])}`);
+          delete processed[field];
         }
       }
     }
@@ -265,7 +275,7 @@ export class NSFApiClient {
   /**
    * Parse response data (handles both JSON and XML)
    */
-  private async parseResponse<T>(data: any): Promise<T> {
+  private async parseResponse<T>(data: unknown): Promise<T> {
     // If data is already an object, return it
     if (typeof data === 'object' && data !== null) {
       return data as T;
@@ -279,7 +289,7 @@ export class NSFApiClient {
       } catch {
         // If JSON parsing fails, try XML
         try {
-          const parsed = await parseStringPromise(data, {
+          const parsed: unknown = await parseStringPromise(data, {
             explicitArray: false,
             ignoreAttrs: true
           });
@@ -319,7 +329,7 @@ export class NSFApiClient {
   /**
    * Handle and transform API errors
    */
-  private handleError(error: any, operation: string): Error {
+  private handleError(error: unknown, operation: string): Error {
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError<NSFErrorResponse>;
 

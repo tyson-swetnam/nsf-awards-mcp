@@ -3,11 +3,7 @@
  * Primary search tool for NSF awards with multiple filter parameters
  */
 
-import {
-  SearchNSFAwardsSchema,
-  SearchNSFAwardsInput,
-  ToolResponse
-} from '../types/mcp-tools.types.js';
+import { SearchNSFAwardsSchema, ToolResponse } from '../types/mcp-tools.types.js';
 import { NSFAward, NSFSearchParams } from '../types/nsf-api.types.js';
 import { nsfApiClient } from '../client/nsf-api-client.js';
 import { logger } from '../utils/logger.js';
@@ -18,14 +14,15 @@ import { logger } from '../utils/logger.js';
 export const searchNSFAwardsTool = {
   name: 'search_nsf_awards',
   title: 'Search NSF Awards',
-  description: 'Search NSF awards with multiple filter parameters including keyword, institution, PI name, dates, and amounts',
+  description:
+    'Search NSF awards with multiple filter parameters including keyword, institution, PI name, dates, and amounts',
   inputSchema: SearchNSFAwardsSchema,
   handler: async (input: unknown): Promise<ToolResponse<NSFAward[]>> => {
     const startTime = Date.now();
 
     try {
       // Validate input
-      const validatedInput = SearchNSFAwardsSchema.parse(input) as SearchNSFAwardsInput;
+      const validatedInput = SearchNSFAwardsSchema.parse(input);
 
       logger.info('Executing search_nsf_awards', { input: validatedInput });
 
@@ -107,8 +104,10 @@ export const searchNSFAwardsTool = {
       let filteredAwards = result.awards;
       if (!validatedInput.includeExpired) {
         const currentDate = new Date();
-        filteredAwards = result.awards.filter(award => {
-          if (!award.expDate) return true;
+        filteredAwards = result.awards.filter((award) => {
+          if (!award.expDate) {
+            return true;
+          }
           try {
             const [month, day, year] = award.expDate.split('/').map(Number);
             const expDate = new Date(year, month - 1, day);
