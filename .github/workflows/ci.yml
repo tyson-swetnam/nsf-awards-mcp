@@ -136,8 +136,9 @@ jobs:
             type=semver,pattern={{major}}
             # Latest tag for main branch
             type=raw,value=latest,enable={{is_default_branch}}
-            # SHA-based tags
-            type=sha,prefix={{branch}}-
+            # SHA-based tags ({{branch}} is empty on pull_request events,
+            # which produced an invalid ":-<sha>" tag)
+            type=sha
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -154,18 +155,22 @@ jobs:
             VCS_REF=${{ github.sha }}
             VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
 
+      - name: Build image for local test
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: nsf-awards-mcp:test
+          cache-from: type=gha
+
       - name: Test Docker image
+        # The server speaks MCP over stdio, so the smoke test performs an
+        # initialize handshake rather than checking for a long-lived process.
         run: |
-          docker run --rm -d --name test-container ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          sleep 10
-          if docker ps | grep test-container; then
-            echo "✅ Container is running successfully"
-            docker stop test-container
-          else
-            echo "❌ Container failed to start"
-            docker logs test-container
-            exit 1
-          fi
+          RESPONSE=$( (printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}'; sleep 5) \
+            | docker run --rm -i -e LOG_LEVEL=error nsf-awards-mcp:test)
+          echo "$RESPONSE"
+          echo "$RESPONSE" | grep -q '"serverInfo":{"name":"nsf-awards-mcp"' || { echo "Container did not complete the MCP handshake"; exit 1; }
 
   # =============================================================================
   # Job 4: Release (only on tags)

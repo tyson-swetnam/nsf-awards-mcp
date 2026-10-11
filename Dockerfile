@@ -20,8 +20,7 @@ RUN apk add --no-cache \
 COPY package.json package-lock.json ./
 
 # Install dependencies
-RUN npm ci --only=production && \
-    npm ci --only=development && \
+RUN npm ci && \
     npm cache clean --force
 
 # Copy source code
@@ -31,8 +30,9 @@ COPY . .
 RUN npm run build && \
     npm run type-check
 
-# Run tests to ensure build quality
-RUN npm test
+# Run tests to ensure build quality, then drop dev dependencies
+RUN npm test && \
+    npm prune --omit=dev
 
 # =============================================================================
 # Stage 2: Go Builder (prepared for future migration)
@@ -97,9 +97,8 @@ EXPOSE 3000
 ENV NODE_ENV=production
 ENV LOG_LEVEL=info
 
-# Add health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/health || exit 1
+# No HEALTHCHECK: the server speaks MCP over stdio (run with `docker run -i`),
+# so there is no HTTP endpoint to probe.
 
 # Use dumb-init for proper signal handling
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
@@ -111,7 +110,7 @@ CMD ["node", "build/index.js"]
 # Metadata
 # =============================================================================
 LABEL maintainer="NSF Awards MCP Server"
-LABEL version="1.0.0"
+LABEL version="1.1.0"
 LABEL description="MCP server for NSF Awards API integration"
 LABEL org.opencontainers.image.source="https://github.com/user/nsf-awards-mcp"
 LABEL org.opencontainers.image.documentation="https://github.com/user/nsf-awards-mcp/blob/main/README.md"
