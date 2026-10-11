@@ -30,9 +30,9 @@ COPY . .
 RUN npm run build && \
     npm run type-check
 
-# Run tests to ensure build quality, then drop dev dependencies
-RUN npm test && \
-    npm prune --omit=dev
+# Tests run in CI's quality job (tests/ is excluded by .dockerignore);
+# drop dev dependencies before the runtime stage copies node_modules
+RUN npm prune --omit=dev
 
 # =============================================================================
 # Stage 2: Go Builder (prepared for future migration)

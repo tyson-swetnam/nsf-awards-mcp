@@ -55,6 +55,7 @@ __tests__/
 coverage/
 .nyc_output/
 jest.config.js
+jest.config.cjs
 *.test.ts
 *.test.js
 *.spec.ts
