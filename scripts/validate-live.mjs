@@ -32,60 +32,74 @@ console.log(`Modern handshake: ${client.getNegotiatedProtocolVersion()} era=${cl
 const { tools } = await client.listTools();
 console.log('Tools:', tools.map(t => `${t.name}${t.annotations?.readOnlyHint ? ' (read-only)' : ''}`).join(', '));
 
-// A known award with a published project outcomes report is discovered at runtime.
+// Each case: tool, arguments, and a check on the parsed result (null = ok).
+// Award ids were confirmed against the live API: 1114898 has a Project
+// Outcomes Report, 9307607 (1993) predates them.
+const hasAwards = (min = 1) => (data) =>
+  Array.isArray(data) && data.length >= min ? null : `expected >= ${min} awards, got ${data?.length ?? 0}`;
+const all = (pred, label) => (data) =>
+  Array.isArray(data) && data.length > 0 && data.every(pred) ? null : `not every award ${label}`;
+const parseDate = (s) => { const [m, d, y] = s.split('/').map(Number); return new Date(y, m - 1, d); };
+
 const cases = [
-  ['search_nsf_awards', { keyword: 'wildfire', limit: 3 }],
-  ['search_nsf_awards', { keyword: 'dendrochronology', startDateFrom: '2020-01-01', startDateTo: '12/31/2024', limit: 3 }],
-  ['search_nsf_awards', { awardeeStateCode: 'NM', estimatedTotalAmtFrom: 1000000, limit: 3 }],
-  ['search_nsf_awards', { keyword: 'machine learning', printFields: 'id,title,piLastName,estimatedTotalAmt', limit: 2 }],
-  ['search_nsf_awards', { keyword: 'climate', offset: 26, limit: 2 }],
-  ['search_by_institution', { institutionName: 'University of Arizona', limit: 3 }],
-  ['search_by_institution', { institutionName: 'University of New Mexico', stateCode: 'NM', limit: 3 }],
-  ['search_by_pi', { lastName: 'Swetnam', limit: 5 }],
-  ['search_by_pi', { firstName: 'Tyson', lastName: 'Swetnam', includeCoPIs: true, limit: 5 }],
+  ['search_nsf_awards', { keyword: 'wildfire', limit: 3 }, hasAwards(3)],
+  ['search_nsf_awards', { keyword: 'wildfire', startDateFrom: '2020-01-01', startDateTo: '12/31/2020', limit: 5 },
+    all((a) => parseDate(a.startDate) >= new Date(2020, 0, 1) && parseDate(a.startDate) <= new Date(2020, 11, 31), 'starts in 2020')],
+  ['search_nsf_awards', { keyword: 'wildfire', expDateFrom: '01/01/2020', expDateTo: '12/31/2020', limit: 5 },
+    all((a) => parseDate(a.expDate).getFullYear() === 2020, 'expires in 2020')],
+  ['search_nsf_awards', { keyword: 'wildfire', dateStart: '01/01/2020', dateEnd: '12/31/2020', limit: 3 }, hasAwards(1)],
+  ['search_nsf_awards', { awardeeStateCode: 'NM', estimatedTotalAmtFrom: 1000000, limit: 3 },
+    all((a) => a.awardeeStateCode === 'NM' && a.estimatedTotalAmt >= 1000000, 'is an NM award >= $1M')],
+  ['search_nsf_awards', { keyword: 'machine learning', printFields: 'id,title,piLastName,estimatedTotalAmt', limit: 2 },
+    all((a) => Object.keys(a).every((k) => ['id', 'title', 'piLastName', 'estimatedTotalAmt'].includes(k)), 'has only the requested fields')],
+  ['search_nsf_awards', { keyword: 'climate', offset: 26, limit: 2 }, hasAwards(2)],
+  ['search_nsf_awards', { piLastName: 'Swetnam', includeExpired: false, limit: 25 },
+    all((a) => a.activeAwd === true || a.activeAwd === 'true', 'is active')],
+  ['search_by_institution', { institutionName: 'University of Arizona', limit: 5 },
+    all((a) => a.awardeeName === 'University of Arizona', 'is at University of Arizona')],
+  ['search_by_institution', { institutionName: 'University of New Mexico', stateCode: 'NM', limit: 5 },
+    all((a) => a.awardeeName === 'University of New Mexico', 'is at University of New Mexico')],
+  ['search_by_pi', { lastName: 'Swetnam', limit: 10 }, all((a) => /Swetnam/.test(a.pdPIName), 'has PI Swetnam')],
+  ['search_by_pi', { firstName: 'Tyson', lastName: 'Swetnam', institution: 'University of Arizona', limit: 10 },
+    all((a) => /Tyson/.test(a.pdPIName) && a.awardeeName === 'University of Arizona', 'is Tyson Swetnam at UA')],
+  ['search_by_pi', { firstName: 'Tyson', lastName: 'Swetnam', includeCoPIs: true, limit: 10 }, hasAwards(4)],
+  ['get_award_details', { awardId: '2632685' }, (d) => (d?.id === '2632685' && d.abstractText ? null : 'missing award or abstract')],
+  ['get_award_details', { awardId: '2632685', includeAbstract: false }, (d) => (d?.id === '2632685' && !('abstractText' in d) ? null : 'abstract not removed')],
+  ['get_project_outcomes', { awardId: '1114898' }, (d) => (d?.outcomesReport?.length > 200 ? null : 'no outcomes report text')],
 ];
 
 let failures = 0;
-const summarize = (name, args, res) => {
-  const text = res.content?.[0]?.text ?? '';
-  let detail = text.slice(0, 160).replace(/\s+/g, ' ');
-  try {
-    const data = JSON.parse(text);
-    if (Array.isArray(data)) {
-      detail = `${data.length} awards; first: ${data[0] ? `${data[0].id} ${String(data[0].title).slice(0, 60)}` : '-'}`;
-    } else if (data && typeof data === 'object') {
-      detail = `keys: ${Object.keys(data).slice(0, 8).join(',')}`;
-    }
-  } catch { /* not JSON */ }
-  console.log(`${res.isError ? 'FAIL' : 'ok  '} ${name} ${JSON.stringify(args)} -> ${detail}`);
-  if (res.isError) failures++;
-  return text;
+const report = (ok, name, args, detail) => {
+  console.log(`${ok ? 'ok  ' : 'FAIL'} ${name} ${JSON.stringify(args)} -> ${detail}`);
+  if (!ok) failures++;
 };
 
-let firstId;
-for (const [name, args] of cases) {
+for (const [name, args, check] of cases) {
   const res = await client.callTool({ name, arguments: args });
-  const text = summarize(name, args, res);
-  if (!firstId) { try { firstId = JSON.parse(text)[0]?.id; } catch {} }
-}
-
-// Detail + outcomes on awards found above, plus a historic award that has an outcomes report.
-for (const id of [firstId, '1550835'].filter(Boolean)) {
-  summarize('get_award_details', { awardId: id }, await client.callTool({ name: 'get_award_details', arguments: { awardId: id } }));
-  summarize('get_award_details', { awardId: id, includeAbstract: false }, await client.callTool({ name: 'get_award_details', arguments: { awardId: id, includeAbstract: false } }));
-  summarize('get_project_outcomes', { awardId: id }, await client.callTool({ name: 'get_project_outcomes', arguments: { awardId: id } }));
+  const text = res.content?.[0]?.text ?? '';
+  if (res.isError) { report(false, name, args, text.slice(0, 200)); continue; }
+  let data;
+  try { data = JSON.parse(text); } catch { report(false, name, args, 'non-JSON result'); continue; }
+  const problem = check(data);
+  const paging = res.content?.[1]?.text ? ` | ${res.content[1].text}` : '';
+  const summary = Array.isArray(data)
+    ? `${data.length} awards; first: ${data[0] ? `${data[0].id} ${String(data[0].title).slice(0, 50)}` : '-'}${paging}`
+    : `keys: ${Object.keys(data).slice(0, 8).join(',')}`;
+  report(!problem, name, args, problem ? `${problem} (${summary})` : summary);
 }
 
 // Expected-error paths
-const bad = await client.callTool({ name: 'get_award_details', arguments: { awardId: '0000000' } });
-console.log(`${bad.isError ? 'ok  ' : 'FAIL'} get_award_details unknown id returns isError -> ${bad.content?.[0]?.text?.slice(0, 120)}`);
-if (!bad.isError) failures++;
-try {
-  const inv = await client.callTool({ name: 'search_by_pi', arguments: {} });
-  console.log(`${inv.isError ? 'ok  ' : 'FAIL'} search_by_pi missing lastName rejected -> ${inv.content?.[0]?.text?.slice(0, 120)}`);
-  if (!inv.isError) failures++;
-} catch (e) {
-  console.log(`ok   search_by_pi missing lastName rejected -> ${e.message.slice(0, 120)}`);
+for (const [name, args, label] of [
+  ['get_award_details', { awardId: '0000000' }, 'unknown award id'],
+  ['get_project_outcomes', { awardId: '9307607' }, 'award without an outcomes report'],
+  ['search_by_pi', {}, 'missing lastName'],
+]) {
+  try {
+    const res = await client.callTool({ name, arguments: args });
+    report(res.isError, name, args, `${label} -> ${res.content?.[0]?.text?.slice(0, 120)}`);
+  } catch (e) {
+    report(true, name, args, `${label} rejected -> ${e.message.slice(0, 120)}`);
+  }
 }
 
 await client.close();

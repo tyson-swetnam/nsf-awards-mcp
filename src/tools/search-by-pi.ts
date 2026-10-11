@@ -31,9 +31,9 @@ export const searchByPITool = {
 
       // Build search parameters
       const searchParams: Partial<NSFSearchParams> = {
-        awardeeOrganization: validatedInput.institution,
-        startDateFrom: validatedInput.startDateFrom,
-        startDateTo: validatedInput.startDateTo,
+        awardeeName: validatedInput.institution,
+        startDateStart: validatedInput.startDateFrom,
+        startDateEnd: validatedInput.startDateTo,
         offset: validatedInput.offset || 0,
         rpp: Math.min(validatedInput.limit || 25, 25)
       };
@@ -47,6 +47,8 @@ export const searchByPITool = {
 
       let allAwards = [...result.awards];
       let hasMoreResults = result.hasMore;
+      // Upper bound when Co-PI matches are merged in (the two sets can overlap)
+      let totalMatches = result.totalResults;
 
       // If includeCoPIs is true, also search for Co-PI matches
       if (validatedInput.includeCoPIs) {
@@ -66,6 +68,7 @@ export const searchByPITool = {
 
           allAwards = [...allAwards, ...uniqueCoPIAwards];
           hasMoreResults = hasMoreResults || coPIResult.hasMore;
+          totalMatches += coPIResult.totalResults;
         } catch (coPIError) {
           logger.warn('Co-PI search failed, returning PI results only', { coPIError });
         }
@@ -115,7 +118,7 @@ export const searchByPITool = {
         success: true,
         data: limitedAwards,
         metadata: {
-          totalResults: limitedAwards.length,
+          totalResults: totalMatches,
           offset: validatedInput.offset || 0,
           limit: validatedInput.limit || 25,
           hasMore: hasMoreResults || allAwards.length > limitedAwards.length,

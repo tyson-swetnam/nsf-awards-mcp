@@ -28,15 +28,27 @@ const SERVER_INFO = {
  */
 function toCallToolResult(toolName: string, result: ToolResponse<unknown>): CallToolResult {
   if (result.success) {
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(result.data, null, 2)
-        }
-      ],
-      isError: false
-    };
+    const content: CallToolResult['content'] = [
+      {
+        type: 'text',
+        text: JSON.stringify(result.data, null, 2)
+      }
+    ];
+
+    // Paging info for search tools, so the model knows whether to fetch more
+    const meta = result.metadata;
+    if (meta && Array.isArray(result.data) && meta.totalResults !== undefined) {
+      const shown = result.data.length;
+      const next = meta.offset + shown;
+      content.push({
+        type: 'text',
+        text:
+          `Showing ${shown} of ${meta.totalResults} matching awards (offset ${meta.offset}).` +
+          (meta.hasMore ? ` More results are available: call again with offset=${next}.` : '')
+      });
+    }
+
+    return { content, isError: false };
   }
 
   return {

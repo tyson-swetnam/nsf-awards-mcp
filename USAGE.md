@@ -432,7 +432,7 @@ Once configured, you can use these tools through natural language with your AI a
 
 1. **search_nsf_awards** - Search for NSF awards
 2. **get_award_details** - Get detailed information about a specific award
-3. **get_project_outcomes** - Retrieve project outcomes and publications
+3. **get_project_outcomes** - Retrieve the Project Outcomes Report
 4. **search_by_institution** - Find awards for a specific institution
 5. **search_by_pi** - Search awards by Principal Investigator
 
@@ -603,7 +603,7 @@ ls -l /path/to/nsf-awards-mcp/build/index.js
 
 2. **Verify NSF API is accessible:**
    ```bash
-   curl "https://api.nsf.gov/services/v1/awards.json?keyword=science&rpp=1"
+   curl "https://www.research.gov/awardapi-service/v1/awards.json?keyword=science&rpp=1"
    ```
 
 3. **Check for rate limiting** - Wait a few minutes and try again

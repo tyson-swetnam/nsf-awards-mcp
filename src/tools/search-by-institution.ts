@@ -31,8 +31,8 @@ export const searchByInstitutionTool = {
       // Build search parameters
       const searchParams: Partial<NSFSearchParams> = {
         awardeeStateCode: validatedInput.stateCode,
-        startDateFrom: validatedInput.startDateFrom,
-        startDateTo: validatedInput.startDateTo,
+        startDateStart: validatedInput.startDateFrom,
+        startDateEnd: validatedInput.startDateTo,
         offset: validatedInput.offset || 0,
         rpp: Math.min(validatedInput.limit || 25, 25)
       };
@@ -72,7 +72,7 @@ export const searchByInstitutionTool = {
         success: true,
         data: filteredAwards,
         metadata: {
-          totalResults: filteredAwards.length,
+          totalResults: result.totalResults,
           offset: validatedInput.offset || 0,
           limit: validatedInput.limit || 25,
           hasMore: result.hasMore,

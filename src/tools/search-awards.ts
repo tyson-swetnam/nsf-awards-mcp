@@ -7,6 +7,7 @@ import { SearchNSFAwardsSchema, ToolResponse } from '../types/mcp-tools.types.js
 import { NSFAward, NSFSearchParams } from '../types/nsf-api.types.js';
 import { nsfApiClient } from '../client/nsf-api-client.js';
 import { logger } from '../utils/logger.js';
+import { pickFields } from '../utils/fields.js';
 
 /**
  * Search NSF Awards Tool
@@ -17,7 +18,7 @@ export const searchNSFAwardsTool = {
   description:
     'Search NSF awards with multiple filter parameters including keyword, institution, PI name, dates, and amounts',
   inputSchema: SearchNSFAwardsSchema,
-  handler: async (input: unknown): Promise<ToolResponse<NSFAward[]>> => {
+  handler: async (input: unknown): Promise<ToolResponse<Partial<NSFAward>[]>> => {
     const startTime = Date.now();
 
     try {
@@ -30,9 +31,6 @@ export const searchNSFAwardsTool = {
       const searchParams: NSFSearchParams = {
         // Core search
         keyword: validatedInput.keyword,
-
-        // Field selection (HIGH PRIORITY)
-        printFields: validatedInput.printFields,
 
         // Identifier parameters
         id: validatedInput.id,
@@ -54,14 +52,12 @@ export const searchNSFAwardsTool = {
         coPDPI: validatedInput.coPDPI,
 
         // Date parameters
-        startDateFrom: validatedInput.startDateFrom,
-        startDateTo: validatedInput.startDateTo,
-        expDateFrom: validatedInput.expDateFrom,
-        expDateTo: validatedInput.expDateTo,
+        startDateStart: validatedInput.startDateFrom,
+        startDateEnd: validatedInput.startDateTo,
+        expDateStart: validatedInput.expDateFrom,
+        expDateEnd: validatedInput.expDateTo,
         dateStart: validatedInput.dateStart,
         dateEnd: validatedInput.dateEnd,
-        awardsDateStart: validatedInput.awardsDateStart,
-        awardsDateEnd: validatedInput.awardsDateEnd,
 
         // Financial parameters
         estimatedTotalAmtFrom: validatedInput.estimatedTotalAmtFrom,
@@ -72,20 +68,14 @@ export const searchNSFAwardsTool = {
         // Agency and program parameters
         agency: validatedInput.agency,
         awardAgencyCode: validatedInput.awardAgencyCode,
-        fundingAgencyCode: validatedInput.fundingAgencyCode,
-        awardingAgencyCode: validatedInput.awardingAgencyCode,
         fundProgramName: validatedInput.fundProgramName,
         primaryProgram: validatedInput.primaryProgram,
-        nsfOrganization: validatedInput.nsfOrganization,
-        nsfDirectorateName: validatedInput.nsfDirectorateName,
 
         // Award type and classification
         transType: validatedInput.transType,
-        awardType: validatedInput.awardType,
 
         // Performance location parameters
         perfLocation: validatedInput.perfLocation,
-        perfState: validatedInput.perfState,
         perfStateCode: validatedInput.perfStateCode,
         perfCountryCode: validatedInput.perfCountryCode,
 
@@ -94,42 +84,33 @@ export const searchNSFAwardsTool = {
 
         // Pagination
         offset: validatedInput.offset || 0,
-        rpp: Math.min(validatedInput.limit || 25, 25)
+        rpp: Math.min(validatedInput.limit || 25, 25),
+
+        // Server-side active filter (filtering a page client-side would
+        // shrink pages and break pagination)
+        ActiveAwards: validatedInput.includeExpired === false ? true : undefined
       };
 
       // Execute search
       const result = await nsfApiClient.searchAwards(searchParams);
 
-      // Filter out expired awards if requested
-      let filteredAwards = result.awards;
-      if (!validatedInput.includeExpired) {
-        const currentDate = new Date();
-        filteredAwards = result.awards.filter((award) => {
-          if (!award.expDate) {
-            return true;
-          }
-          try {
-            const [month, day, year] = award.expDate.split('/').map(Number);
-            const expDate = new Date(year, month - 1, day);
-            return expDate >= currentDate;
-          } catch {
-            return true; // Include if can't parse date
-          }
-        });
-      }
+      // The live API ignores printFields, so apply the projection here
+      const awards = validatedInput.printFields
+        ? result.awards.map((award) => pickFields(award, validatedInput.printFields as string))
+        : result.awards;
 
       const executionTime = Date.now() - startTime;
 
       logger.info('search_nsf_awards completed', {
-        resultCount: filteredAwards.length,
+        resultCount: awards.length,
         executionTime
       });
 
       return {
         success: true,
-        data: filteredAwards,
+        data: awards,
         metadata: {
-          totalResults: filteredAwards.length,
+          totalResults: result.totalResults,
           offset: validatedInput.offset || 0,
           limit: validatedInput.limit || 25,
           hasMore: result.hasMore,

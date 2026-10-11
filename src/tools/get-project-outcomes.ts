@@ -14,7 +14,8 @@ import { logger } from '../utils/logger.js';
 export const getProjectOutcomesTool = {
   name: 'get_project_outcomes',
   title: 'Get NSF Project Outcomes',
-  description: 'Get project outcomes, publications, and results for a specific NSF award',
+  description:
+    'Get the Project Outcomes Report (the public summary of results a PI files after an award ends) for a specific NSF award',
   inputSchema: GetProjectOutcomesSchema,
   handler: async (input: unknown): Promise<ToolResponse<NSFProjectOutcome>> => {
     const startTime = Date.now();
@@ -42,14 +43,9 @@ export const getProjectOutcomesTool = {
 
       const executionTime = Date.now() - startTime;
 
-      // Count publications and conferences for metadata
-      const publicationCount = outcomes.publications?.length || 0;
-      const conferenceCount = outcomes.conferences?.length || 0;
-
       logger.info('get_project_outcomes completed', {
         awardId: validatedInput.awardId,
-        publicationCount,
-        conferenceCount,
+        reportLength: outcomes.outcomesReport.length,
         executionTime
       });
 

@@ -16,7 +16,7 @@ export const SearchNSFAwardsSchema = z.object({
     .string()
     .optional()
     .describe(
-      'Comma-separated list of fields to return (e.g., "id,title,piLastName,estimatedTotalAmt"). Reduces response size.'
+      'Comma-separated list of fields to return (e.g., "id,title,piLastName,estimatedTotalAmt"). Reduces response size; omit for full records.'
     ),
 
   // Identifier parameters
@@ -52,13 +52,8 @@ export const SearchNSFAwardsSchema = z.object({
   startDateTo: z.string().optional().describe('Award start date to (mm/dd/yyyy format)'),
   expDateFrom: z.string().optional().describe('Award expiration date from (mm/dd/yyyy format)'),
   expDateTo: z.string().optional().describe('Award expiration date to (mm/dd/yyyy format)'),
-  dateStart: z.string().optional().describe('General award date from (mm/dd/yyyy format)'),
-  dateEnd: z.string().optional().describe('General award date to (mm/dd/yyyy format)'),
-  awardsDateStart: z
-    .string()
-    .optional()
-    .describe('Alternative award date from (mm/dd/yyyy format)'),
-  awardsDateEnd: z.string().optional().describe('Alternative award date to (mm/dd/yyyy format)'),
+  dateStart: z.string().optional().describe('Award (action) date from (mm/dd/yyyy format)'),
+  dateEnd: z.string().optional().describe('Award (action) date to (mm/dd/yyyy format)'),
 
   // Financial parameters
   estimatedTotalAmtFrom: z.number().optional().describe('Minimum estimated total award amount'),
@@ -67,22 +62,16 @@ export const SearchNSFAwardsSchema = z.object({
   fundsObligatedAmtTo: z.number().optional().describe('Maximum obligated funds amount'),
 
   // Agency and program parameters
-  agency: z.string().optional().describe('Funding agency name'),
+  agency: z.string().optional().describe('Agency abbreviation (NSF data uses "NSF")'),
   awardAgencyCode: z.string().optional().describe('Award agency code'),
-  fundingAgencyCode: z.string().optional().describe('Funding agency code'),
-  awardingAgencyCode: z.string().optional().describe('Awarding agency code'),
   fundProgramName: z.string().optional().describe('Funding program name'),
   primaryProgram: z.string().optional().describe('Primary program name'),
-  nsfOrganization: z.string().optional().describe('NSF organization code'),
-  nsfDirectorateName: z.string().optional().describe('NSF directorate name'),
 
   // Award type and classification
   transType: z.string().optional().describe('Transaction type (e.g., Grant, Contract, Fellowship)'),
-  awardType: z.string().optional().describe('Award type (e.g., Standard Grant, Continuing Grant)'),
 
   // Performance location parameters
   perfLocation: z.string().optional().describe('Performance location description'),
-  perfState: z.string().optional().describe('Performance location state name'),
   perfStateCode: z.string().optional().describe('Performance location state code'),
   perfCountryCode: z.string().optional().describe('Performance location country code'),
 
@@ -92,7 +81,11 @@ export const SearchNSFAwardsSchema = z.object({
   // Pagination and control
   offset: z.number().optional().describe('Pagination offset'),
   limit: z.number().optional().default(25).describe('Number of results to return (max 25)'),
-  includeExpired: z.boolean().optional().default(true).describe('Include expired awards in results')
+  includeExpired: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe('Include expired awards in results (false returns active awards only)')
 });
 
 export type SearchNSFAwardsInput = z.infer<typeof SearchNSFAwardsSchema>;

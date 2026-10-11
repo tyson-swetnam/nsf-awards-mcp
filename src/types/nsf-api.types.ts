@@ -83,7 +83,8 @@ export interface NSFAward {
   abstractText?: string;
   publicationResearch?: string[];
   publicationConference?: string[];
-  projectOutcomesReport?: string;
+  /** HTML Project Outcomes Report; note the API's capital "C" spelling */
+  projectOutComesReport?: string;
 }
 
 /**
@@ -92,42 +93,45 @@ export interface NSFAward {
 export interface NSFSearchResponse {
   response: {
     award?: NSFAward | NSFAward[];
+    metadata?: NSFResponseMetadata;
+    serviceNotification?: NSFServiceNotification[];
   };
 }
 
 /**
- * Project outcomes structure
+ * Paging metadata returned alongside search results
+ */
+export interface NSFResponseMetadata {
+  offset?: number;
+  rpp?: number;
+  totalCount?: number;
+}
+
+/**
+ * Notification the API returns (with HTTP 200) for rejected requests,
+ * e.g. AwardAPI-002 "Invalid parameter(s) sent in the request"
+ */
+export interface NSFServiceNotification {
+  notificationCode: string;
+  notificationMessage: string;
+  notificationType: string;
+}
+
+/**
+ * Project Outcomes Report for an award. The API returns it as the
+ * `projectOutComesReport` HTML field on the award record.
  */
 export interface NSFProjectOutcome {
   awardId: string;
-  awardTitle: string;
-  pi: string;
-  organization: string;
-  accomplishments?: string;
-  publications?: Array<{
-    title: string;
-    authors?: string;
-    journalName?: string;
-    year?: string;
-    doi?: string;
-  }>;
-  conferences?: Array<{
-    title: string;
-    location?: string;
-    year?: string;
-  }>;
-  websites?: string[];
-  otherProducts?: string[];
-  impacts?: string;
-}
-
-/**
- * Project outcomes response envelope
- */
-export interface NSFProjectOutcomesResponse {
-  response: {
-    projectOutcomes?: NSFProjectOutcome | NSFProjectOutcome[];
-  };
+  title: string;
+  pi?: string;
+  awardee?: string;
+  startDate?: string;
+  expDate?: string;
+  /** The report as plain text */
+  outcomesReport: string;
+  /** The report as returned by the API (HTML) */
+  outcomesReportHtml: string;
 }
 
 /**
@@ -157,19 +161,18 @@ export interface NSFSearchParams {
   awardeeZipCode?: string;
   awardeeDistrictCode?: string;
   awardeeName?: string;
-  awardeeOrganization?: string;
   piFirstName?: string;
   piLastName?: string;
   pdPIName?: string;
   coPDPI?: string;
-  startDateFrom?: string; // Format: mm/dd/yyyy
-  startDateTo?: string; // Format: mm/dd/yyyy
-  expDateFrom?: string; // Format: mm/dd/yyyy
-  expDateTo?: string; // Format: mm/dd/yyyy
-  dateStart?: string; // Format: mm/dd/yyyy
-  dateEnd?: string; // Format: mm/dd/yyyy
-  awardsDateStart?: string; // Format: mm/dd/yyyy
-  awardsDateEnd?: string; // Format: mm/dd/yyyy
+  // Date ranges, format mm/dd/yyyy. The API rejects the *From/*To spellings
+  // (AwardAPI-002 "Invalid parameter(s)"), so only these names are valid.
+  startDateStart?: string;
+  startDateEnd?: string;
+  expDateStart?: string;
+  expDateEnd?: string;
+  dateStart?: string;
+  dateEnd?: string;
   estimatedTotalAmtFrom?: number;
   estimatedTotalAmtTo?: number;
   estimatedAwardAmountFrom?: number;
@@ -179,24 +182,22 @@ export interface NSFSearchParams {
   id?: string;
   agency?: string;
   awardAgencyCode?: string;
-  fundingAgencyCode?: string;
-  awardingAgencyCode?: string;
   fundProgramName?: string;
   primaryProgram?: string;
   transType?: string;
-  awardType?: string;
   cfdaNumber?: string;
-  nsfOrganization?: string;
-  nsfDirectorateName?: string;
-  perfState?: string;
   perfStateCode?: string;
   perfCountryCode?: string;
   perfLocation?: string;
   ueiNumber?: string;
   parentUeiNumber?: string;
-  offset?: number;
+  /** true limits results to active awards */
+  ActiveAwards?: boolean;
+  /** true limits results to expired awards */
+  ExpiredAwards?: boolean;
+  offset?: number; // 0-based record offset
   rpp?: number; // Results per page, max 25
-  printFields?: string;
+  printFields?: string; // Accepted but ignored by the live API
 }
 
 /**
