@@ -55,7 +55,7 @@ export const getAwardDetailsTool = {
 
         return {
           success: true,
-          data: awardWithoutAbstract as NSFAward,
+          data: awardWithoutAbstract,
           metadata: {
             totalResults: 1,
             offset: 0,

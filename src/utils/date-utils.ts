@@ -88,7 +88,7 @@ export function normalizeToNSFDate(dateInput: string | number | Date): string | 
     }
 
     return toNSFDateFormat(date);
-  } catch (error) {
+  } catch {
     return undefined;
   }
 }

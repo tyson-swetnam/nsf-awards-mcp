@@ -79,7 +79,7 @@ export class NSFApiClient {
       },
       (error: unknown) => {
         logger.error('NSF API Request Error', { error });
-        return Promise.reject(error);
+        return Promise.reject(error instanceof Error ? error : new Error(String(error)));
       }
     );
 
