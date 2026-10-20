@@ -37,6 +37,7 @@ Compare against the raw API with `curl -s -G https://www.research.gov/awardapi-s
 - `totalCount` is capped at 10000, so a broad filter can look like it didn't narrow. Add a `keyword` (e.g. `wildfire`, ~981 awards) before judging a filter.
 - `cfdaNumber`, `primaryProgram`, `coPDPI` and `fundsObligated` hold several values (comma lists or arrays), so check with "contains", not equality.
 - If you print the raw tool text, don't truncate it before `JSON.parse`, because records with abstracts are large.
-- `LOG_LEVEL=error` hides the server's warn log, which is where a dropped invalid date filter shows up.
+- `LOG_LEVEL=error` hides the server's info/warn logs; tool results are the evidence, not stderr.
+- `piFirstName` matching is fuzzy upstream (other people's awards come back), so check a server-side fix against the raw API before calling it a server bug.
 - Phrase quoting depends on the field. A quoted value fixes `awardeeName`/`perfLocation`/`fundProgramName`, but returns 0 for `pdPIName`/`coPDPI` and broadens `piLastName`.
 - Useful fixtures: award 2632685 (UNM, PI Tyson Swetnam, full field set), 1114898 (has a Project Outcomes Report), 9307607 (has no report).
