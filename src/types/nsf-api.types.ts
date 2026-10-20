@@ -181,9 +181,9 @@ export interface NSFSearchParams {
   fundsObligatedAmtTo?: number;
   id?: string;
   agency?: string;
-  awardAgencyCode?: string;
+  // awardAgencyCode and primaryProgram are accepted by the API but return no
+  // results for any value, so they are not sent
   fundProgramName?: string;
-  primaryProgram?: string;
   transType?: string;
   cfdaNumber?: string;
   perfStateCode?: string;

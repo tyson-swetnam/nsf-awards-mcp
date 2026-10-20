@@ -63,6 +63,14 @@ const cases = [
   ['search_by_pi', { firstName: 'Tyson', lastName: 'Swetnam', institution: 'University of Arizona', limit: 10 },
     all((a) => /Tyson/.test(a.pdPIName) && a.awardeeName === 'University of Arizona', 'is Tyson Swetnam at UA')],
   ['search_by_pi', { firstName: 'Tyson', lastName: 'Swetnam', includeCoPIs: true, limit: 10 }, hasAwards(4)],
+  // The Co-PI search must not pull in Thomas Swetnam's awards
+  ['search_by_pi', { firstName: 'Tyson', lastName: 'Swetnam', includeCoPIs: true, limit: 25 },
+    all((a) => /Tyson/.test(a.pdPIName) || (a.coPDPI ?? []).some((c) => /Tyson/.test(c)), 'names Tyson')],
+  // Multi-word perfLocation / fundProgramName match the phrase, not any word
+  ['search_nsf_awards', { perfLocation: 'University of New Mexico', limit: 10 },
+    all((a) => a.perfLocation === 'University of New Mexico', 'is performed at University of New Mexico')],
+  ['search_nsf_awards', { fundProgramName: 'Ecosystem Studies', limit: 10 },
+    all((a) => /ecosystem studies/i.test(a.fundProgramName), 'is in Ecosystem Studies')],
   ['get_award_details', { awardId: '2632685' }, (d) => (d?.id === '2632685' && d.abstractText ? null : 'missing award or abstract')],
   ['get_award_details', { awardId: '2632685', includeAbstract: false }, (d) => (d?.id === '2632685' && !('abstractText' in d) ? null : 'abstract not removed')],
   ['get_project_outcomes', { awardId: '1114898' }, (d) => (d?.outcomesReport?.length > 200 ? null : 'no outcomes report text')],
@@ -88,11 +96,35 @@ for (const [name, args, check] of cases) {
   report(!problem, name, args, problem ? `${problem} (${summary})` : summary);
 }
 
+// includeCoPIs paging: following the offset hint must reach every award
+{
+  const args = { firstName: 'Tyson', lastName: 'Swetnam', includeCoPIs: true };
+  const ids = async (extra) => {
+    const res = await client.callTool({ name: 'search_by_pi', arguments: { ...args, ...extra } });
+    return JSON.parse(res.content[0].text).map((a) => a.id);
+  };
+  const [page1, page2, everything] = [await ids({ limit: 5 }), await ids({ offset: 5, limit: 5 }), await ids({ limit: 25 })];
+  const paged = [...page1, ...page2];
+  report(page2.length > 0 && JSON.stringify(paged) === JSON.stringify(everything), 'search_by_pi', { ...args, pages: 'offset 0 + 5' },
+    `pages ${page1.length}+${page2.length} vs ${everything.length} in one call`);
+}
+
+// A count at the API's 10000 cap must not read as exact
+{
+  const res = await client.callTool({ name: 'search_nsf_awards', arguments: { keyword: 'climate', limit: 1 } });
+  const paging = res.content?.[1]?.text ?? '';
+  report(/of 10000\+ matching/.test(paging), 'search_nsf_awards', { keyword: 'climate' }, paging.slice(0, 120));
+}
+
 // Expected-error paths
 for (const [name, args, label] of [
   ['get_award_details', { awardId: '0000000' }, 'unknown award id'],
   ['get_project_outcomes', { awardId: '9307607' }, 'award without an outcomes report'],
   ['search_by_pi', {}, 'missing lastName'],
+  ['search_nsf_awards', { keyword: 'wildfire', startDateFrom: 'yesterday' }, 'invalid date'],
+  ['search_nsf_awards', { keyword: 'wildfire', startDateFrom: '12/31/2024', startDateTo: '01/01/2020' }, 'reversed date range'],
+  ['search_nsf_awards', { keyword: 'wildfire', limit: 0 }, 'limit below 1'],
+  ['search_by_pi', { lastName: 'Smith', includeCoPIs: true }, 'Co-PI merge too broad'],
 ]) {
   try {
     const res = await client.callTool({ name, arguments: args });

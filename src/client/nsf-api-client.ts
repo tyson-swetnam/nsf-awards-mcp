@@ -16,6 +16,9 @@ import { logger } from '../utils/logger.js';
 import { normalizeToNSFDate } from '../utils/date-utils.js';
 import { htmlToText } from '../utils/html-utils.js';
 
+/** Search fields the API only matches as a phrase when the value is quoted */
+const PHRASE_FIELDS = ['awardeeName', 'perfLocation', 'fundProgramName'] as const;
+
 /**
  * Configuration for the NSF API client
  */
@@ -120,11 +123,16 @@ export class NSFApiClient {
         processedParams.rpp = 25;
       }
 
-      // An unquoted multi-word awardeeName matches any one of the words
-      // ("University of Arizona" returns every "University"); quoting it
-      // makes the API match the phrase.
-      if (processedParams.awardeeName && /\s/.test(processedParams.awardeeName.trim())) {
-        processedParams.awardeeName = `"${processedParams.awardeeName.trim().replace(/"/g, '')}"`;
+      // An unquoted multi-word value in these fields matches any one of the
+      // words ("University of Arizona" returns every "University"); quoting
+      // makes the API match the phrase. Not every field works this way:
+      // quoted pdPIName/coPDPI return nothing, quoted piLastName matches more,
+      // and awardeeCity ignores the quotes, so those stay unquoted.
+      for (const field of PHRASE_FIELDS) {
+        const value = processedParams[field];
+        if (value && /\s/.test(value.trim())) {
+          processedParams[field] = `"${value.trim().replace(/"/g, '')}"`;
+        }
       }
 
       const response = await this.client.get<NSFSearchResponse | string>('/awards.json', {
@@ -150,6 +158,30 @@ export class NSFApiClient {
       };
     } catch (error) {
       throw this.handleError(error, 'searchAwards');
+    }
+  }
+
+  /**
+   * Fetch every page of a search, for callers that must merge or re-sort
+   * results before paging them. Refuses searches matching more than
+   * maxRecords rather than issuing dozens of requests.
+   */
+  async searchAllPages(params: NSFSearchParams, maxRecords = 250): Promise<NSFAward[]> {
+    const awards: NSFAward[] = [];
+    let offset = 0;
+
+    for (;;) {
+      const page = await this.searchAwards({ ...params, offset, rpp: 25 });
+      if (page.totalResults > maxRecords) {
+        throw new Error(
+          `Search matches ${page.totalResults} awards, more than the ${maxRecords} that can be merged; narrow it (e.g. add firstName, institution or a date range)`
+        );
+      }
+      awards.push(...page.awards);
+      offset += page.awards.length;
+      if (!page.hasMore || page.awards.length === 0) {
+        return awards;
+      }
     }
   }
 
@@ -275,12 +307,13 @@ export class NSFApiClient {
     for (const field of dateFields) {
       if (processed[field]) {
         const normalized = normalizeToNSFDate(processed[field]);
-        if (normalized) {
-          processed[field] = normalized;
-        } else {
-          logger.warn(`Invalid date format for ${field}: ${String(processed[field])}`);
-          delete processed[field];
+        if (!normalized) {
+          // Dropping the filter would return unfiltered results as if it applied
+          throw new Error(
+            `Invalid date for ${field}: ${String(processed[field])} (expected mm/dd/yyyy or yyyy-mm-dd)`
+          );
         }
+        processed[field] = normalized;
       }
     }
 

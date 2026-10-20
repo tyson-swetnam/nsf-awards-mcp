@@ -8,6 +8,44 @@ import { NSFAward, NSFSearchParams } from '../types/nsf-api.types.js';
 import { nsfApiClient } from '../client/nsf-api-client.js';
 import { logger } from '../utils/logger.js';
 
+/** Lower-cased words of a name, ignoring punctuation such as "(Former)" commas */
+const nameWords = (name: string): string[] =>
+  name
+    .toLowerCase()
+    .split(/[\s,()]+/)
+    .filter(Boolean);
+
+/**
+ * True when the award names the person as PI or Co-PI. The API's name
+ * matching is loose (piFirstName alone matches other people, and a
+ * coPDPI last-name search finds every Co-PI sharing the surname), so the
+ * merged Co-PI results are checked against both names.
+ */
+function namesPerson(award: NSFAward, firstName: string | undefined, lastName: string): boolean {
+  const wanted = nameWords(`${firstName ?? ''} ${lastName}`);
+  const people = [award.pdPIName ?? '', ...(award.coPDPI ?? [])];
+  return people.some((person) => {
+    const words = nameWords(person);
+    return wanted.every((word) => words.includes(word));
+  });
+}
+
+/** Parse the API's mm/dd/yyyy into a sortable number (0 when absent) */
+function startDateValue(award: NSFAward): number {
+  if (!award.startDate) {
+    return 0;
+  }
+  const [month, day, year] = award.startDate.split('/').map(Number);
+  return new Date(year, month - 1, day).getTime() || 0;
+}
+
+/**
+ * Most recent first; ties broken by id because the API's own order among
+ * ties changes between calls, which would shuffle records across pages.
+ */
+const byStartDateDesc = (a: NSFAward, b: NSFAward): number =>
+  startDateValue(b) - startDateValue(a) || b.id.localeCompare(a.id);
+
 /**
  * Search by Principal Investigator Tool
  */
@@ -29,69 +67,54 @@ export const searchByPITool = {
         institution: validatedInput.institution
       });
 
+      const { firstName, lastName, limit } = validatedInput;
+      const offset = validatedInput.offset || 0;
+
       // Build search parameters
       const searchParams: Partial<NSFSearchParams> = {
         awardeeName: validatedInput.institution,
         startDateStart: validatedInput.startDateFrom,
-        startDateEnd: validatedInput.startDateTo,
-        offset: validatedInput.offset || 0,
-        rpp: Math.min(validatedInput.limit || 25, 25)
+        startDateEnd: validatedInput.startDateTo
       };
 
-      // Execute primary search for PI
-      const result = await nsfApiClient.searchByPI(
-        validatedInput.firstName,
-        validatedInput.lastName,
-        searchParams
-      );
+      let limitedAwards: NSFAward[];
+      let totalMatches: number;
+      let hasMoreResults: boolean;
 
-      let allAwards = [...result.awards];
-      let hasMoreResults = result.hasMore;
-      // Upper bound when Co-PI matches are merged in (the two sets can overlap)
-      let totalMatches = result.totalResults;
-
-      // If includeCoPIs is true, also search for Co-PI matches
       if (validatedInput.includeCoPIs) {
-        const coPIParams: NSFSearchParams = {
+        // PI and Co-PI results come from two searches, so the API's offset
+        // can't page the union. Fetch both in full, merge, then page here.
+        const piAwards = await nsfApiClient.searchAllPages({
           ...searchParams,
-          coPDPI: validatedInput.lastName,
-          piFirstName: undefined,
-          piLastName: undefined
-        };
+          piFirstName: firstName,
+          piLastName: lastName
+        });
+        const coPIAwards = await nsfApiClient.searchAllPages({
+          ...searchParams,
+          coPDPI: firstName ? `${firstName} ${lastName}` : lastName
+        });
 
-        try {
-          const coPIResult = await nsfApiClient.searchAwards(coPIParams);
-
-          // Merge results and remove duplicates based on award ID
-          const awardIds = new Set(allAwards.map((a) => a.id));
-          const uniqueCoPIAwards = coPIResult.awards.filter((award) => !awardIds.has(award.id));
-
-          allAwards = [...allAwards, ...uniqueCoPIAwards];
-          hasMoreResults = hasMoreResults || coPIResult.hasMore;
-          totalMatches += coPIResult.totalResults;
-        } catch (coPIError) {
-          logger.warn('Co-PI search failed, returning PI results only', { coPIError });
+        const merged = new Map<string, NSFAward>();
+        for (const award of [...piAwards, ...coPIAwards]) {
+          if (!merged.has(award.id) && namesPerson(award, firstName, lastName)) {
+            merged.set(award.id, award);
+          }
         }
+
+        const allAwards = [...merged.values()].sort(byStartDateDesc);
+        limitedAwards = allAwards.slice(offset, offset + limit);
+        totalMatches = allAwards.length;
+        hasMoreResults = offset + limitedAwards.length < totalMatches;
+      } else {
+        const result = await nsfApiClient.searchByPI(firstName, lastName, {
+          ...searchParams,
+          offset,
+          rpp: limit
+        });
+        limitedAwards = [...result.awards].sort(byStartDateDesc);
+        totalMatches = result.totalResults;
+        hasMoreResults = result.hasMore;
       }
-
-      // Sort awards by start date (most recent first)
-      allAwards.sort((a, b) => {
-        if (!a.startDate || !b.startDate) {
-          return 0;
-        }
-        try {
-          const [aMonth, aDay, aYear] = a.startDate.split('/').map(Number);
-          const [bMonth, bDay, bYear] = b.startDate.split('/').map(Number);
-          const aDate = new Date(aYear, aMonth - 1, aDay);
-          const bDate = new Date(bYear, bMonth - 1, bDay);
-          return bDate.getTime() - aDate.getTime();
-        } catch {
-          return 0;
-        }
-      });
-
-      // Apply limit after merging and sorting
-      const limitedAwards = allAwards.slice(0, validatedInput.limit || 25);
 
       const executionTime = Date.now() - startTime;
 
@@ -119,9 +142,9 @@ export const searchByPITool = {
         data: limitedAwards,
         metadata: {
           totalResults: totalMatches,
-          offset: validatedInput.offset || 0,
-          limit: validatedInput.limit || 25,
-          hasMore: hasMoreResults || allAwards.length > limitedAwards.length,
+          offset,
+          limit,
+          hasMore: hasMoreResults,
           executionTime
         }
       };
