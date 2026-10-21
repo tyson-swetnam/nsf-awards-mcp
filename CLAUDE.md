@@ -30,7 +30,14 @@ This is an MCP (Model Context Protocol) server for the U.S. National Science Fou
   `nsfDirectorateName`, `awardType`, `fundingAgencyCode`, `awardingAgencyCode`,
   `perfState`, `sortBy` and `sortDir` are invalid
 - `printFields` is accepted but ignored (full records always return)
-- Unquoted multi-word `awardeeName` matches any word; quote it to match the phrase
+- Unquoted multi-word `awardeeName`, `perfLocation` and `fundProgramName` match any
+  word; quote them to match the phrase (the client does this). Quoting is per field:
+  quoted `pdPIName`/`coPDPI` return nothing, quoted `piLastName` matches more, and
+  `awardeeCity` matches any word either way
+- `coPDPI` with a full name ("First Last") matches that person; a last name alone
+  matches every Co-PI with the surname. `piFirstName` on its own is fuzzy
+- `awardAgencyCode` and `primaryProgram` are accepted but return 0 results for every
+  value (verified 2026-10-20), so the tools don't offer them
 - `ActiveAwards=true` / `ExpiredAwards=true` filter by status
 - `offset` is a 0-based record offset; `response.metadata.totalCount` gives the total
   (capped at 10000), and ordering among ties is not stable between calls

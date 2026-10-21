@@ -67,9 +67,7 @@ export const searchNSFAwardsTool = {
 
         // Agency and program parameters
         agency: validatedInput.agency,
-        awardAgencyCode: validatedInput.awardAgencyCode,
         fundProgramName: validatedInput.fundProgramName,
-        primaryProgram: validatedInput.primaryProgram,
 
         // Award type and classification
         transType: validatedInput.transType,
@@ -84,7 +82,7 @@ export const searchNSFAwardsTool = {
 
         // Pagination
         offset: validatedInput.offset || 0,
-        rpp: Math.min(validatedInput.limit || 25, 25),
+        rpp: validatedInput.limit,
 
         // Server-side active filter (filtering a page client-side would
         // shrink pages and break pagination)
@@ -112,7 +110,7 @@ export const searchNSFAwardsTool = {
         metadata: {
           totalResults: result.totalResults,
           offset: validatedInput.offset || 0,
-          limit: validatedInput.limit || 25,
+          limit: validatedInput.limit,
           hasMore: result.hasMore,
           executionTime
         }

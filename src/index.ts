@@ -23,6 +23,8 @@ const SERVER_INFO = {
   description: 'MCP server for NSF Awards API integration'
 };
 
+const NSF_RESULT_CAP = 10000;
+
 /**
  * Convert a tool handler's ToolResponse into an MCP CallToolResult
  */
@@ -40,11 +42,19 @@ function toCallToolResult(toolName: string, result: ToolResponse<unknown>): Call
     if (meta && Array.isArray(result.data) && meta.totalResults !== undefined) {
       const shown = result.data.length;
       const next = meta.offset + shown;
+      // The API reports at most 10000 matches and serves no record past that
+      const capped = meta.totalResults >= NSF_RESULT_CAP;
+      const total = capped ? `${NSF_RESULT_CAP}+` : String(meta.totalResults);
       content.push({
         type: 'text',
         text:
-          `Showing ${shown} of ${meta.totalResults} matching awards (offset ${meta.offset}).` +
-          (meta.hasMore ? ` More results are available: call again with offset=${next}.` : '')
+          `Showing ${shown} of ${total} matching awards (offset ${meta.offset}).` +
+          (meta.hasMore && next < NSF_RESULT_CAP
+            ? ` More results are available: call again with offset=${next}.`
+            : '') +
+          (capped
+            ? ' The NSF API caps counts and paging at 10,000; narrow the search to reach the rest.'
+            : '')
       });
     }
 

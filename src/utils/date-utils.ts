@@ -78,6 +78,10 @@ export function normalizeToNSFDate(dateInput: string | number | Date): string | 
       if (dateInput.match(/^\d{4}-\d{2}-\d{2}$/)) {
         const [year, month, day] = dateInput.split('-').map(Number);
         date = new Date(year, month - 1, day);
+        // Reject out-of-range parts instead of letting 2020-13-45 roll over
+        if (date.getMonth() !== month - 1 || date.getDate() !== day) {
+          return undefined;
+        }
       }
     } else {
       throw new Error('Invalid date input type');

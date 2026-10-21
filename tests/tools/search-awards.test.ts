@@ -138,23 +138,33 @@ describe('search_nsf_awards tool', () => {
       );
     });
 
-    it('should limit results to maximum 25', async () => {
-      mockClient.searchAwards.mockResolvedValue({
-        awards: [],
-        totalResults: 0,
-        hasMore: false
-      });
+    it.each([
+      ['limit above 25', { limit: 100 }],
+      ['limit of 0', { limit: 0 }],
+      ['negative offset', { offset: -1 }],
+      ['offset past the API cap', { offset: 10000 }],
+      ['invalid date', { startDateFrom: 'yesterday' }],
+      ['out-of-range ISO date', { startDateFrom: '2020-13-45' }],
+      ['reversed date range', { startDateFrom: '12/31/2024', startDateTo: '01/01/2020' }]
+    ])('should reject %s without calling the API', async (_label, extra) => {
+      const result = await searchNSFAwardsTool.handler({ keyword: 'test', ...extra });
+
+      expect(result.success).toBe(false);
+      expect(mockClient.searchAwards).not.toHaveBeenCalled();
+    });
+
+    it('should not send parameters the live API cannot filter on', async () => {
+      mockClient.searchAwards.mockResolvedValue({ awards: [], totalResults: 0, hasMore: false });
 
       await searchNSFAwardsTool.handler({
         keyword: 'test',
-        limit: 100
-      });
+        awardAgencyCode: '4900',
+        primaryProgram: '01002627DB'
+      } as any);
 
-      expect(mockClient.searchAwards).toHaveBeenCalledWith(
-        expect.objectContaining({
-          rpp: 25
-        })
-      );
+      const params = mockClient.searchAwards.mock.calls[0][0];
+      expect(params).not.toHaveProperty('awardAgencyCode');
+      expect(params).not.toHaveProperty('primaryProgram');
     });
 
     it('should handle API errors gracefully', async () => {

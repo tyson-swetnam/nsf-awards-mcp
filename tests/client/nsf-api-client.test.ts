@@ -261,6 +261,35 @@ describe('NSFApiClient', () => {
       const callArgs = ((client as any).client.get as jest.Mock).mock.calls[0];
       expect(callArgs[1].params.awardeeName).toBe('"University of Arizona"');
     });
+
+    it('should quote multi-word perfLocation and fundProgramName too', async () => {
+      (client as any).client.get = jest.fn().mockResolvedValue({
+        data: { response: { award: [] } },
+        status: 200
+      });
+
+      await client.searchAwards({
+        perfLocation: 'University of New Mexico',
+        fundProgramName: 'Ecosystem Studies'
+      });
+
+      const params = ((client as any).client.get as jest.Mock).mock.calls[0][1].params;
+      expect(params.perfLocation).toBe('"University of New Mexico"');
+      expect(params.fundProgramName).toBe('"Ecosystem Studies"');
+    });
+
+    it('should leave name fields unquoted, where quoting breaks matching', async () => {
+      (client as any).client.get = jest.fn().mockResolvedValue({
+        data: { response: { award: [] } },
+        status: 200
+      });
+
+      await client.searchAwards({ pdPIName: 'Tyson Swetnam', coPDPI: 'Tyson Swetnam' });
+
+      const params = ((client as any).client.get as jest.Mock).mock.calls[0][1].params;
+      expect(params.pdPIName).toBe('Tyson Swetnam');
+      expect(params.coPDPI).toBe('Tyson Swetnam');
+    });
   });
 
   describe('searchByInstitution', () => {
@@ -352,24 +381,54 @@ describe('NSFApiClient', () => {
       expect(callArgs[1].params.startDateEnd).toBe('12/31/2024');
     });
 
-    it('should remove invalid date parameters', async () => {
-      const mockResponse = {
-        data: {
-          response: { award: [] }
-        },
+    it('should reject invalid dates instead of dropping the filter', async () => {
+      (client as any).client.get = jest.fn().mockResolvedValue({
+        data: { response: { award: [] } },
         status: 200
-      };
-
-      (client as any).client.get = jest.fn().mockResolvedValue(mockResponse);
-
-      await client.searchAwards({
-        startDateStart: 'invalid',
-        startDateEnd: '01/01/2024'
       });
 
-      const callArgs = ((client as any).client.get as jest.Mock).mock.calls[0];
-      expect(callArgs[1].params.startDateStart).toBeUndefined();
-      expect(callArgs[1].params.startDateEnd).toBe('01/01/2024');
+      await expect(
+        client.searchAwards({
+          startDateStart: 'invalid',
+          startDateEnd: '01/01/2024'
+        })
+      ).rejects.toThrow('Invalid date for startDateStart');
+      expect((client as any).client.get).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('searchAllPages', () => {
+    const page = (ids: string[], totalCount: number) => ({
+      data: {
+        response: {
+          award: ids.map((id) => ({ id, title: id, awardee: 'U' })),
+          metadata: { totalCount }
+        }
+      },
+      status: 200
+    });
+
+    it('should follow offsets until every record is fetched', async () => {
+      const first = Array.from({ length: 25 }, (_, i) => `a${i}`);
+      (client as any).client.get = jest
+        .fn()
+        .mockResolvedValueOnce(page(first, 27))
+        .mockResolvedValueOnce(page(['b0', 'b1'], 27));
+
+      const awards = await client.searchAllPages({ coPDPI: 'Swetnam' });
+
+      expect(awards.map((a) => a.id)).toEqual([...first, 'b0', 'b1']);
+      const calls = ((client as any).client.get as jest.Mock).mock.calls;
+      expect(calls.map((c) => c[1].params.offset)).toEqual([0, 25]);
+      expect(calls[0][1].params.rpp).toBe(25);
+    });
+
+    it('should refuse searches larger than the merge limit', async () => {
+      (client as any).client.get = jest.fn().mockResolvedValue(page(['a'], 2760));
+
+      await expect(client.searchAllPages({ piLastName: 'Smith' })).rejects.toThrow(
+        'Search matches 2760 awards'
+      );
     });
   });
 });

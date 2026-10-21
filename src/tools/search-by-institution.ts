@@ -34,7 +34,7 @@ export const searchByInstitutionTool = {
         startDateStart: validatedInput.startDateFrom,
         startDateEnd: validatedInput.startDateTo,
         offset: validatedInput.offset || 0,
-        rpp: Math.min(validatedInput.limit || 25, 25)
+        rpp: validatedInput.limit
       };
 
       // Execute search
@@ -43,38 +43,29 @@ export const searchByInstitutionTool = {
         searchParams
       );
 
-      // If includeSubawards is false, filter out subawards
-      let filteredAwards = result.awards;
-      if (!validatedInput.includeSubawards) {
-        filteredAwards = result.awards.filter((award) => {
-          // Subawards typically have transType of 'SUBAWARD' or specific indicators
-          return !award.transType || !award.transType.toLowerCase().includes('subaward');
-        });
-      }
-
       const executionTime = Date.now() - startTime;
 
       // Group awards by program if there are results
       const programDistribution: Record<string, number> = {};
-      filteredAwards.forEach((award) => {
+      result.awards.forEach((award) => {
         const program = award.fundProgramName || award.primaryProgram || 'Unknown';
         programDistribution[program] = (programDistribution[program] || 0) + 1;
       });
 
       logger.info('search_by_institution completed', {
         institution: validatedInput.institutionName,
-        resultCount: filteredAwards.length,
+        resultCount: result.awards.length,
         programCount: Object.keys(programDistribution).length,
         executionTime
       });
 
       return {
         success: true,
-        data: filteredAwards,
+        data: result.awards,
         metadata: {
           totalResults: result.totalResults,
           offset: validatedInput.offset || 0,
-          limit: validatedInput.limit || 25,
+          limit: validatedInput.limit,
           hasMore: result.hasMore,
           executionTime
         }
